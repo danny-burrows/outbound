@@ -21,7 +21,7 @@ impl Health {
         }
     }
 
-    fn check_health(&self) -> Option<u8> {
+    fn check(&self) -> Option<u8> {
         self.0
     }
 }
@@ -42,6 +42,6 @@ impl Villager {
     }
 
     pub fn is_alive(&self) -> bool {
-        self.health.check_health().is_some()
+        self.health.check().is_some()
     }
 }

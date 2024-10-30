@@ -1,10 +1,6 @@
 struct Health(Option<u8>);
 
 impl Health {
-    fn default() -> Self {
-        Self::new(100)
-    }
-
     fn new(amount: u8) -> Self {
         Self(Some(amount))
     }
@@ -26,6 +22,12 @@ impl Health {
     }
 }
 
+impl Default for Health {
+    fn default() -> Self {
+        Self::new(100)
+    }
+}
+
 struct Inventory {}
 
 pub struct Villager {
@@ -43,5 +45,11 @@ impl Villager {
 
     pub fn is_alive(&self) -> bool {
         self.health.check().is_some()
+    }
+}
+
+impl Default for Villager {
+    fn default() -> Self {
+        Self::new()
     }
 }

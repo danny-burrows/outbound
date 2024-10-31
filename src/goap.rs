@@ -23,7 +23,7 @@ trait Action {
 
     fn cost(&self) -> f64;
 
-    fn prerequisite(&self) -> Option<()> {
+    fn prerequisite(&self, _current_state: &State) -> Option<bool> {
         None
     }
 }
@@ -48,19 +48,29 @@ impl Action for MoveAction {
     }
 }
 
+struct Item {
+    position: (f64, f64),
+    id: String,
+}
+
 struct PickUpAction {
-    item_id: String,
+    item: Item,
 }
 
 impl Action for PickUpAction {
     fn act(&self, current_state: State) -> State {
         let mut new_state = current_state.clone();
-        new_state.agent.inventory.insert(self.item_id.clone(), 1);
+        new_state.agent.inventory.insert(self.item.id.clone(), 1);
         new_state
     }
 
     fn cost(&self) -> f64 {
+        // Arbitrary cost to pick up an item. Maybe this should be weight?
         1.0
+    }
+
+    fn prerequisite(&self, current_state: &State) -> Option<bool> {
+        Some(current_state.agent.position == self.item.position)
     }
 }
 

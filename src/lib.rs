@@ -1,4 +1,4 @@
-mod goap;
+pub mod goap;
 
 struct Health(Option<u8>);
 

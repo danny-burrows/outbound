@@ -39,6 +39,7 @@ pub fn generate_goal_state(current_state: &State) -> State {
     goal_state.agent.inventory.push("wood".to_string());
     goal_state.agent.inventory.push("stone".to_string());
     goal_state.agent.inventory.push("berry".to_string());
+    goal_state.agent.inventory.push("wood".to_string());
     goal_state
 }
 
@@ -272,7 +273,7 @@ fn successors(node: &Node) -> Vec<(Node, u64)> {
 }
 
 fn heuristic() -> u64 {
-    1
+    0
 }
 
 fn success(state: &State, goal_state: &State) -> bool {

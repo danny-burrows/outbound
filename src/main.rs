@@ -1,6 +1,4 @@
-use outbound::goap::{
-    generate_available_actions, generate_goal_state, plan, print_plan, Action, Agent, Item, State,
-};
+use outbound::goap::{generate_goal_state, plan, print_plan, Action, Agent, Item, State};
 use outbound::Villager;
 use std::{thread, time};
 
@@ -9,7 +7,7 @@ fn print_world(agent: &Agent, items: &[Item]) {
 
     for i in 0..10 {
         for j in 0..10 {
-            if let Some(item) = items.iter().filter(|item| item.position == (i, j)).next() {
+            if let Some(item) = items.iter().find(|item| item.position == (i, j)) {
                 print!("{}", item.id.chars().next().unwrap());
                 continue;
             }

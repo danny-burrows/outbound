@@ -26,10 +26,10 @@ pub struct State {
 }
 
 impl State {
-    pub fn construct(agent: &Agent, items: &Vec<Item>) -> State {
+    pub fn construct(agent: &Agent, items: &[Item]) -> State {
         State {
             agent: agent.clone(),
-            items: items.clone(),
+            items: items.to_owned(),
         }
     }
 }
@@ -66,6 +66,16 @@ impl Action for AgentAction {
             AgentAction::ChopTreeAction(chop_tree_action) => chop_tree_action.cost(),
         }
     }
+
+    fn prerequisite(&self, current_state: &State) -> bool {
+        match self {
+            AgentAction::MoveAction(move_action) => move_action.prerequisite(current_state),
+            AgentAction::PickUpAction(pick_up_action) => pick_up_action.prerequisite(current_state),
+            AgentAction::ChopTreeAction(chop_tree_action) => {
+                chop_tree_action.prerequisite(current_state)
+            }
+        }
+    }
 }
 
 // Actions describe changes to the input State and can be generated on the fly. For example, a MoveAction moves the Agent toward a certain item.
@@ -74,57 +84,70 @@ pub trait Action: Clone {
 
     fn cost(&self) -> u64;
 
-    fn prerequisite(&self, _current_state: &State) -> Option<bool> {
-        None
-    }
+    fn prerequisite(&self, _current_state: &State) -> bool;
 }
 
-pub fn generate_available_actions(items: &Vec<Item>) -> Vec<AgentAction> {
-    let mut actions = vec![];
+pub fn generate_available_actions(current_state: &State) -> Vec<AgentAction> {
+    let mut available_actions = vec![];
 
+    // All directions of movement - should constrain to the map.
     for i in -1..2 {
         for j in -1..2 {
-            actions.push(AgentAction::MoveAction(MoveAction {
+            let move_action = AgentAction::MoveAction(MoveAction {
                 delta_x: i,
                 delta_y: j,
-            }));
+            });
+
+            if move_action.prerequisite(current_state) {
+                available_actions.push(move_action);
+            }
         }
     }
 
-    for item in items {
-        if item.id == "tree".to_string() {
-            actions.push(AgentAction::ChopTreeAction(ChopTreeAction {
-                item: item.clone(),
-            }));
+    for item in current_state.items.clone() {
+        let action = if item.id == *"tree" {
+            AgentAction::ChopTreeAction(ChopTreeAction { item: item.clone() })
         } else {
-            actions.push(AgentAction::PickUpAction(PickUpAction {
-                item: item.clone(),
-            }));
+            AgentAction::PickUpAction(PickUpAction { item: item.clone() })
+        };
+
+        if action.prerequisite(current_state) {
+            available_actions.push(action);
         }
     }
 
-    actions
+    available_actions
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct MoveAction {
+pub struct MoveAction {
     delta_x: i64,
     delta_y: i64,
+}
+
+impl MoveAction {
+    fn get_new_position(&self, current_state: &State) -> (i64, i64) {
+        let (current_x, current_y) = current_state.agent.position;
+        (current_x + self.delta_x, current_y + self.delta_y)
+    }
 }
 
 impl Action for MoveAction {
     fn act(&self, current_state: State) -> State {
         let mut new_state = current_state.clone();
-        new_state.agent.position = (
-            new_state.agent.position.0 + self.delta_x,
-            new_state.agent.position.1 + self.delta_y,
-        );
+        new_state.agent.position = self.get_new_position(&current_state);
         new_state
     }
 
     fn cost(&self) -> u64 {
         1
         // (self.delta_x.pow(2) + self.delta_y.pow(2)).unsigned_abs()
+    }
+
+    fn prerequisite(&self, current_state: &State) -> bool {
+        // Check that new position is not out of bounds
+        let new_position = self.get_new_position(current_state);
+        new_position.0 > -1 && new_position.0 < 11 && new_position.1 > -1 && new_position.1 < 11
     }
 }
 
@@ -141,16 +164,12 @@ impl Item {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct PickUpAction {
+pub struct PickUpAction {
     item: Item,
 }
 
 impl Action for PickUpAction {
     fn act(&self, current_state: State) -> State {
-        if self.prerequisite(&current_state) == Some(false) {
-            return current_state;
-        }
-
         let mut new_state = current_state.clone();
         new_state.agent.inventory.push(self.item.id.clone());
 
@@ -166,25 +185,18 @@ impl Action for PickUpAction {
         1
     }
 
-    fn prerequisite(&self, current_state: &State) -> Option<bool> {
-        Some(
-            current_state.agent.position == self.item.position
-                && self.item.id != "tree".to_string(),
-        )
+    fn prerequisite(&self, current_state: &State) -> bool {
+        current_state.agent.position == self.item.position && self.item.id != *"tree"
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct ChopTreeAction {
+pub struct ChopTreeAction {
     item: Item,
 }
 
 impl Action for ChopTreeAction {
     fn act(&self, current_state: State) -> State {
-        if self.prerequisite(&current_state) == Some(false) {
-            return current_state;
-        }
-
         let mut new_state = current_state.clone();
 
         let wood = Item {
@@ -204,8 +216,8 @@ impl Action for ChopTreeAction {
         1
     }
 
-    fn prerequisite(&self, current_state: &State) -> Option<bool> {
-        Some(current_state.agent.position == self.item.position)
+    fn prerequisite(&self, current_state: &State) -> bool {
+        current_state.agent.position == self.item.position
     }
 }
 
@@ -223,23 +235,16 @@ pub fn plan(current_state: State, goal_state: State) -> Option<Vec<AgentAction>>
 
     let start = Node {
         state: current_state.clone(),
-        available_actions: generate_available_actions(&current_state.items),
+        available_actions: generate_available_actions(&current_state),
         action: None,
     };
 
-    println!("Test");
-    let best_path_option = pathfinding::directed::astar::astar(
-        &start,
-        |node| successors(&node),
-        |_| heuristic(),
-        |node| success(&node.state, &goal_state),
-    );
-    // let best_path_option = pathfinding::directed::dijkstra::dijkstra(
-    //     &start,
-    //     |node| successors(&node.state, &available_actions),
-    //     |node| success(&node.state, &goal_state),
-    // );
-    println!("Test");
+    println!("Start planning...");
+    let best_path_option =
+        pathfinding::directed::astar::astar(&start, successors, heuristic, |node| {
+            success(&node.state, &goal_state)
+        });
+    println!("Plan complete!");
 
     if let Some((best_path, _)) = best_path_option {
         let actions = best_path
@@ -257,7 +262,7 @@ fn successors(node: &Node) -> Vec<(Node, u64)> {
     let mut successors = vec![];
     for action in node.available_actions.iter() {
         let new_state = action.act(node.state.clone());
-        let new_available_actions = generate_available_actions(&new_state.items);
+        let new_available_actions = generate_available_actions(&new_state);
 
         let cost = action.cost();
         let next_node = Node {
@@ -272,7 +277,7 @@ fn successors(node: &Node) -> Vec<(Node, u64)> {
     successors
 }
 
-fn heuristic() -> u64 {
+fn heuristic(_: &Node) -> u64 {
     0
 }
 

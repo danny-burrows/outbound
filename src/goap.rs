@@ -259,22 +259,22 @@ pub fn plan(current_state: State, goal_state: State) -> Option<Vec<AgentAction>>
 }
 
 fn successors(node: &Node) -> Vec<(Node, u64)> {
-    let mut successors = vec![];
-    for action in node.available_actions.iter() {
-        let new_state = action.act(node.state.clone());
-        let new_available_actions = generate_available_actions(&new_state);
+    node.available_actions
+        .iter()
+        .map(|agent_action| {
+            let new_state = agent_action.act(node.state.clone());
+            let new_available_actions = generate_available_actions(&new_state);
 
-        let cost = action.cost();
-        let next_node = Node {
-            state: new_state,
-            available_actions: new_available_actions,
-            action: Some(action.clone()),
-        };
+            let cost = agent_action.cost();
+            let next_node = Node {
+                state: new_state,
+                available_actions: new_available_actions,
+                action: Some(agent_action.clone()),
+            };
 
-        successors.push((next_node, cost));
-    }
-
-    successors
+            (next_node, cost)
+        })
+        .collect()
 }
 
 fn heuristic(_: &Node) -> u64 {

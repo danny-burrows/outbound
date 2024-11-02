@@ -79,7 +79,7 @@ impl Action for AgentAction {
 }
 
 // Actions describe changes to the input State and can be generated on the fly. For example, a MoveAction moves the Agent toward a certain item.
-pub trait Action: Clone {
+pub trait Action {
     fn act(&self, current_state: State) -> State;
 
     fn cost(&self) -> u64;
@@ -282,8 +282,6 @@ fn heuristic(_: &Node) -> u64 {
 }
 
 fn success(state: &State, goal_state: &State) -> bool {
-    // println!("S {:?}", state);
-    // println!("G {:?}", goal_state);
     state.agent == goal_state.agent
 }
 
@@ -292,4 +290,5 @@ pub fn print_plan(plan: Vec<AgentAction>) {
         println!("---------------------------");
         println!("Action: {:#?}", agent_action);
     }
+    println!("---------------------------");
 }

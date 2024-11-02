@@ -40,6 +40,8 @@ pub fn generate_goal_state(current_state: &State) -> State {
     goal_state.agent.inventory.push("stone".to_string());
     goal_state.agent.inventory.push("berry".to_string());
     goal_state.agent.inventory.push("wood".to_string());
+    goal_state.agent.inventory.push("wood".to_string());
+    goal_state.agent.inventory.push("wood".to_string());
     goal_state
 }
 
@@ -89,23 +91,22 @@ pub trait Action {
 
 pub fn generate_available_actions(current_state: &State) -> Vec<AgentAction> {
     let mut available_actions = vec![];
+    let (agent_x, agent_y) = current_state.agent.position;
 
-    // All directions of movement - should constrain to the map.
-    for i in -1..2 {
-        for j in -1..2 {
-            let move_action = AgentAction::MoveAction(MoveAction {
-                delta_x: i,
-                delta_y: j,
-            });
-
-            if move_action.prerequisite(current_state) {
-                available_actions.push(move_action);
-            }
-        }
-    }
+    // Needed to allow agent to return to start point.
+    available_actions.push(AgentAction::MoveAction(MoveAction {
+        delta_x: -agent_x,
+        delta_y: -agent_y,
+    }));
 
     for item in current_state.items.clone() {
-        let action = if item.id == *"tree" {
+        let action = if item.position != current_state.agent.position {
+            let (item_x, item_y) = item.position;
+            AgentAction::MoveAction(MoveAction {
+                delta_x: item_x - agent_x,
+                delta_y: item_y - agent_y,
+            })
+        } else if item.id == *"tree" {
             AgentAction::ChopTreeAction(ChopTreeAction { item: item.clone() })
         } else {
             AgentAction::PickUpAction(PickUpAction { item: item.clone() })
@@ -140,8 +141,9 @@ impl Action for MoveAction {
     }
 
     fn cost(&self) -> u64 {
-        1
-        // (self.delta_x.pow(2) + self.delta_y.pow(2)).unsigned_abs()
+        let fdelta_x: f64 = self.delta_x as f64;
+        let fdelta_y: f64 = self.delta_y as f64;
+        (fdelta_x.powf(2.0) + fdelta_y.powf(2.0)).sqrt() as u64
     }
 
     fn prerequisite(&self, current_state: &State) -> bool {

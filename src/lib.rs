@@ -1,3 +1,5 @@
+pub mod goap;
+
 struct Health(Option<u8>);
 
 impl Health {

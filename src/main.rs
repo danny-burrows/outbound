@@ -1,8 +1,12 @@
+use outbound::goap::{generate_goal_state, plan, print_plan, Action, Agent, Item, State};
 use outbound::Villager;
+use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
 
 const MAX_BUILDINGS: usize = 100;
-const MAX_TREES: usize = 500;
+const MAX_TREES: usize = 10;
+const MAX_BERRIES: usize = 4;
+const MAX_STONE: usize = 5;
 
 fn main() {
     let villager = Villager::new();
@@ -11,23 +15,45 @@ fn main() {
 
     println!("Hello, world! Villager is alive: {villager_is_alive}");
 
-    use raylib::consts::KeyboardKey::*;
     let (w, h) = (860, 640);
     let (mut rl, thread) = raylib::init().size(w, h).title("Outbound").build();
     rl.set_target_fps(60);
 
+    let agent = Agent::new((0, 0));
+
+    let mut items = Vec::with_capacity(MAX_BERRIES + MAX_STONE + MAX_TREES);
+    for _ in 0..MAX_TREES {
+        let rx: i64 = rl.get_random_value(-10..10);
+        let ry: i64 = rl.get_random_value(-10..10);
+        items.push(Item::new("tree".to_string(), (rx, ry)));
+    }
+    for _ in 0..MAX_BERRIES {
+        let rx: i64 = rl.get_random_value(-10..10);
+        let ry: i64 = rl.get_random_value(-10..10);
+        items.push(Item::new("berry".to_string(), (rx, ry)));
+    }
+    for _ in 0..MAX_STONE {
+        let rx: i64 = rl.get_random_value(-10..10);
+        let ry: i64 = rl.get_random_value(-10..10);
+        items.push(Item::new("stone".to_string(), (rx, ry)));
+    }
+
+    let current_state = State::construct(&agent, &items);
+    let goal_state = generate_goal_state(&current_state);
+
+    // let available_actions = generate_available_actions(agent, items);
+    let plan_option = plan(current_state.clone(), goal_state);
+
+    let mut state = current_state.clone();
+    let plan = plan_option.expect("FAILED TO PLAN");
+
+    print_plan(plan.clone());
+
+    let mut plan_iter = plan.iter();
     let mut player = Rectangle::new(400.0, 280.0, 40.0, 40.0);
     let mut buildings = Vec::with_capacity(MAX_BUILDINGS);
     let mut build_colors = Vec::with_capacity(MAX_BUILDINGS);
-    let mut trees = Vec::with_capacity(MAX_TREES);
     let mut spacing = 0.0;
-
-    for _ in 0..MAX_TREES {
-        let rx: i32 = rl.get_random_value(-800..800);
-        let ry: i32 = rl.get_random_value(-800..800);
-        trees.push(Rectangle::new(rx as f32, ry as f32, 10.0, 10.0));
-    }
-
     for i in 0..MAX_BUILDINGS {
         let bh: i32 = rl.get_random_value(100..800);
         buildings.push(Rectangle::new(
@@ -53,7 +79,16 @@ fn main() {
         zoom: 1.0,
     };
 
+    let mut act_offset = 0;
+
     while !rl.window_should_close() {
+        if act_offset % 90 == 0 {
+            if let Some(action) = plan_iter.next() {
+                state = action.act(state);
+            }
+        }
+        act_offset += 1;
+
         if rl.is_key_down(KEY_RIGHT) {
             player.x += 2.0;
         } else if rl.is_key_down(KEY_LEFT) {
@@ -61,10 +96,11 @@ fn main() {
         }
 
         // Camera follows player
-        camera.target = Vector2::new(
-            player.x + player.width / 2.0,
-            player.y + player.height / 2.0,
-        );
+        // camera.target = Vector2::new(
+        //     player.x + player.width / 2.0,
+        //     player.y + player.height / 2.0,
+        // );
+        camera.target = Vector2::new(0.0, 0.0);
 
         // Camera rotation controls
         if rl.is_key_down(KEY_A) {
@@ -94,12 +130,27 @@ fn main() {
             for i in 0..MAX_BUILDINGS {
                 d2.draw_rectangle_rec(buildings[i], build_colors[i]);
             }
-            for i in 0..MAX_TREES {
-                d2.draw_rectangle_rec(trees[i], Color::LAWNGREEN);
+
+            d2.draw_rectangle(
+                state.agent.position.0 as i32 - 2,
+                state.agent.position.1 as i32 - 2,
+                4,
+                4,
+                Color::BLUE,
+            );
+
+            for i in state.items.clone().into_iter() {
+                let c = if &i.id == "tree" {
+                    Color::LAWNGREEN
+                } else if &i.id == "berry" {
+                    Color::DARKRED
+                } else {
+                    Color::GRAY
+                };
+                d2.draw_rectangle(i.position.0 as i32, i.position.1 as i32, 2, 2, c);
             }
             d2.draw_rectangle_rec(villager_rect, Color::BLUE);
             d2.draw_rectangle_rec(player, Color::RED);
-
             d2.draw_line(
                 camera.target.x as i32,
                 -h * 10,

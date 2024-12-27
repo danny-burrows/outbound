@@ -2,11 +2,12 @@ use outbound::Villager;
 use raylib::prelude::*;
 
 const MAX_BUILDINGS: usize = 100;
+const MAX_TREES: usize = 500;
 
 fn main() {
     let villager = Villager::new();
     let villager_is_alive = villager.is_alive();
-    let mut villager_rect = Rectangle::new(10.0, 25.0, 10.0, 10.0);
+    let villager_rect = Rectangle::new(10.0, 25.0, 10.0, 10.0);
 
     println!("Hello, world! Villager is alive: {villager_is_alive}");
 
@@ -18,7 +19,14 @@ fn main() {
     let mut player = Rectangle::new(400.0, 280.0, 40.0, 40.0);
     let mut buildings = Vec::with_capacity(MAX_BUILDINGS);
     let mut build_colors = Vec::with_capacity(MAX_BUILDINGS);
+    let mut trees = Vec::with_capacity(MAX_TREES);
     let mut spacing = 0.0;
+
+    for _ in 0..MAX_TREES {
+        let rx: i32 = rl.get_random_value(-800..800);
+        let ry: i32 = rl.get_random_value(-800..800);
+        trees.push(Rectangle::new(rx as f32, ry as f32, 10.0, 10.0));
+    }
 
     for i in 0..MAX_BUILDINGS {
         let bh: i32 = rl.get_random_value(100..800);
@@ -85,6 +93,9 @@ fn main() {
 
             for i in 0..MAX_BUILDINGS {
                 d2.draw_rectangle_rec(buildings[i], build_colors[i]);
+            }
+            for i in 0..MAX_TREES {
+                d2.draw_rectangle_rec(trees[i], Color::LAWNGREEN);
             }
             d2.draw_rectangle_rec(villager_rect, Color::BLUE);
             d2.draw_rectangle_rec(player, Color::RED);

@@ -1,315 +1,43 @@
 /// The objective of GOAP is for an `Agent` to find a way from the current `State` -> goal `State` through `Action`s.
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Agent {
-    pub position: (i64, i64),
-    pub inventory: Vec<String>,
-}
-
-impl Agent {
-    pub fn new(position: (i64, i64)) -> Agent {
-        Agent {
-            position,
-            inventory: vec![],
-        }
-    }
-}
-
 // State MUST be all-encompassing
 // e.g. For an agent to pick something up; the information about the item, where it is, and the agent's inventory must all be included in the state.
 // So we need some process for constructing and deconstructing the state for each agent.
 // - States can then be augmented with agent perception.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct State {
-    pub agent: Agent,
-    pub items: Vec<Item>,
-}
-
-impl State {
-    pub fn construct(agent: &Agent, items: &[Item]) -> State {
-        State {
-            agent: agent.clone(),
-            items: items.to_owned(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum AgentAction {
-    MoveAction(MoveAction),
-    MoveToNearestItemAction(MoveToNearestItemAction),
-    PickUpAction(PickUpAction),
-    ChopTreeAction(ChopTreeAction),
-}
-
-impl Action for AgentAction {
-    fn act(&self, current_state: State) -> State {
-        match self {
-            AgentAction::MoveAction(move_action) => move_action.act(current_state),
-            AgentAction::MoveToNearestItemAction(move_to_nearest_item_action) => {
-                move_to_nearest_item_action.act(current_state)
-            }
-            AgentAction::PickUpAction(pick_up_action) => pick_up_action.act(current_state),
-            AgentAction::ChopTreeAction(chop_tree_action) => chop_tree_action.act(current_state),
-        }
-    }
-
-    fn cost(&self) -> u64 {
-        match self {
-            AgentAction::MoveAction(move_action) => move_action.cost(),
-            AgentAction::MoveToNearestItemAction(move_to_nearest_item_action) => {
-                move_to_nearest_item_action.cost()
-            }
-            AgentAction::PickUpAction(pick_up_action) => pick_up_action.cost(),
-            AgentAction::ChopTreeAction(chop_tree_action) => chop_tree_action.cost(),
-        }
-    }
-
-    fn prerequisite(&self, current_state: &State) -> bool {
-        match self {
-            AgentAction::MoveAction(move_action) => move_action.prerequisite(current_state),
-            AgentAction::MoveToNearestItemAction(move_to_nearest_item_action) => {
-                move_to_nearest_item_action.prerequisite(current_state)
-            }
-            AgentAction::PickUpAction(pick_up_action) => pick_up_action.prerequisite(current_state),
-            AgentAction::ChopTreeAction(chop_tree_action) => {
-                chop_tree_action.prerequisite(current_state)
-            }
-        }
-    }
+trait State: Clone + PartialEq + Eq {
+    fn generate_available_actions(&self) -> GenericActions<Self>;
 }
 
 // Actions describe changes to the input State and can be generated on the fly. For example, a MoveAction moves the Agent toward a certain item.
-pub trait Action {
-    fn act(&self, current_state: State) -> State;
+trait Action<S: State> {
+    fn act(&self, current_state: S) -> S;
 
     fn cost(&self) -> u64;
 
-    fn prerequisite(&self, _current_state: &State) -> bool;
+    fn prerequisite(&self, _current_state: &S) -> bool;
 }
 
-pub fn generate_available_actions(current_state: &State) -> Vec<AgentAction> {
-    let mut available_actions = vec![];
-    let (agent_x, agent_y) = current_state.agent.position;
+#[derive(Debug)]
+struct GenericAction<S: State>(Box<dyn Action<S>>);
 
-    // Needed to allow agent to return to start point.
-    available_actions.push(AgentAction::MoveAction(MoveAction {
-        delta_x: -agent_x,
-        delta_y: -agent_y,
-    }));
-
-    let tree_action = AgentAction::MoveToNearestItemAction(MoveToNearestItemAction {
-        target_item_id: "tree".to_string(),
-    });
-    if tree_action.prerequisite(current_state) {
-        available_actions.push(tree_action);
-    }
-
-    let stone_action = AgentAction::MoveToNearestItemAction(MoveToNearestItemAction {
-        target_item_id: "stone".to_string(),
-    });
-    if stone_action.prerequisite(current_state) {
-        available_actions.push(stone_action);
-    }
-
-    let berry_action = AgentAction::MoveToNearestItemAction(MoveToNearestItemAction {
-        target_item_id: "berry".to_string(),
-    });
-    if berry_action.prerequisite(current_state) {
-        available_actions.push(berry_action);
-    }
-
-    for item in current_state.items.clone() {
-        if item.position == current_state.agent.position {
-            if item.id == *"tree" {
-                let action = AgentAction::ChopTreeAction(ChopTreeAction { item: item.clone() });
-                if action.prerequisite(current_state) {
-                    available_actions.push(action);
-                }
-            } else {
-                let action = AgentAction::PickUpAction(PickUpAction { item: item.clone() });
-                if action.prerequisite(current_state) {
-                    available_actions.push(action);
-                }
-            }
-        }
-    }
-
-    // println!("{}", available_actions.len());
-
-    available_actions
-}
+#[derive(Debug)]
+struct GenericActions<S: State>(Vec<GenericAction<S>>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MoveToNearestItemAction {
-    target_item_id: String,
+struct Node<S: State> {
+    state: S,
+    available_actions: GenericActions<S>,
+    action: Option<GenericAction<S>>,
 }
 
-impl MoveToNearestItemAction {
-    fn get_new_position(&self, current_state: &State) -> Option<(i64, i64)> {
-        let (current_x, current_y) = current_state.agent.position;
-        current_state
-            .items
-            .iter()
-            .filter_map(|item| (item.id == self.target_item_id).then_some(item.position))
-            .min_by_key(|(ix, iy)| {
-                (((ix - current_x) as f64).powf(2.0) + ((iy - current_y) as f64).powf(2.0)).sqrt()
-                    as u64
-            })
-    }
-}
-
-impl Action for MoveToNearestItemAction {
-    fn act(&self, current_state: State) -> State {
-        let mut new_state = current_state.clone();
-        new_state.agent.position = self
-            .get_new_position(&current_state)
-            .expect("If we passed prerequisite there should be something here!");
-        new_state
-    }
-
-    fn cost(&self) -> u64 {
-        // TODO
-        5
-    }
-
-    fn prerequisite(&self, current_state: &State) -> bool {
-        // Check that new position is not out of bounds
-        const WORLD_MAX: i64 = 151;
-
-        if let Some(new_position) = self.get_new_position(current_state) {
-            new_position.0 > -1
-                && new_position.0 < WORLD_MAX
-                && new_position.1 > -1
-                && new_position.1 < WORLD_MAX
-        } else {
-            false
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct MoveAction {
-    delta_x: i64,
-    delta_y: i64,
-}
-
-impl MoveAction {
-    fn get_new_position(&self, current_state: &State) -> (i64, i64) {
-        let (current_x, current_y) = current_state.agent.position;
-        (current_x + self.delta_x, current_y + self.delta_y)
-    }
-}
-
-impl Action for MoveAction {
-    fn act(&self, current_state: State) -> State {
-        let mut new_state = current_state.clone();
-        new_state.agent.position = self.get_new_position(&current_state);
-        new_state
-    }
-
-    fn cost(&self) -> u64 {
-        let fdelta_x: f64 = self.delta_x as f64;
-        let fdelta_y: f64 = self.delta_y as f64;
-        (fdelta_x.powf(2.0) + fdelta_y.powf(2.0)).sqrt() as u64
-    }
-
-    fn prerequisite(&self, current_state: &State) -> bool {
-        // Check that new position is not out of bounds
-        let new_position = self.get_new_position(current_state);
-        const WORLD_MAX: i64 = 26;
-        new_position.0 > -1
-            && new_position.0 < WORLD_MAX
-            && new_position.1 > -1
-            && new_position.1 < WORLD_MAX
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Item {
-    pub position: (i64, i64),
-    pub id: String,
-}
-
-impl Item {
-    pub fn new(id: String, position: (i64, i64)) -> Item {
-        Item { id, position }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PickUpAction {
-    item: Item,
-}
-
-impl Action for PickUpAction {
-    fn act(&self, current_state: State) -> State {
-        let mut new_state = current_state.clone();
-        new_state.agent.inventory.push(self.item.id.clone());
-
-        if let Some(i) = new_state.items.iter().position(|item| item == &self.item) {
-            new_state.items.remove(i);
-        }
-
-        new_state
-    }
-
-    fn cost(&self) -> u64 {
-        // Arbitrary cost to pick up an item. Maybe this should be weight?
-        1
-    }
-
-    fn prerequisite(&self, current_state: &State) -> bool {
-        current_state.agent.position == self.item.position && self.item.id != *"tree"
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ChopTreeAction {
-    item: Item,
-}
-
-impl Action for ChopTreeAction {
-    fn act(&self, current_state: State) -> State {
-        let mut new_state = current_state.clone();
-
-        let wood = Item {
-            position: self.item.position,
-            id: "wood".into(),
-        };
-        new_state.items.push(wood);
-
-        if let Some(i) = new_state.items.iter().position(|item| item == &self.item) {
-            new_state.items.remove(i);
-        }
-
-        new_state
-    }
-
-    fn cost(&self) -> u64 {
-        1
-    }
-
-    fn prerequisite(&self, current_state: &State) -> bool {
-        current_state.agent.position == self.item.position
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Node {
-    state: State,
-    available_actions: Vec<AgentAction>,
-    action: Option<AgentAction>,
-}
-
-pub fn plan(current_state: State, goal_state: State) -> Option<Vec<AgentAction>> {
+pub fn plan<S: State>(current_state: S, goal_state: S) -> Option<GenericActions<S>> {
     // 1. Generate a directed graph sensibly, stopping when exusted with the PATIENCE value.
     // 2. Use some algorithm to find the shortest path from current_state to goal_state.
     // 3. Return that path as a Plan.
 
     let start = Node {
         state: current_state.clone(),
-        available_actions: generate_available_actions(&current_state),
+        available_actions: current_state.generate_available_actions(),
         action: None,
     };
 
@@ -332,12 +60,12 @@ pub fn plan(current_state: State, goal_state: State) -> Option<Vec<AgentAction>>
     }
 }
 
-fn successors(node: &Node) -> Vec<(Node, u64)> {
+fn successors<S: State>(node: &Node<S>) -> Vec<(Node<S>, u64)> {
     node.available_actions
         .iter()
         .map(|agent_action| {
             let new_state = agent_action.act(node.state.clone());
-            let new_available_actions = generate_available_actions(&new_state);
+            let new_available_actions = new_state.generate_available_actions();
 
             let cost = agent_action.cost();
             let next_node = Node {
@@ -351,16 +79,16 @@ fn successors(node: &Node) -> Vec<(Node, u64)> {
         .collect()
 }
 
-fn heuristic(_: &Node) -> u64 {
+fn heuristic<S: State>(_: &Node<S>) -> u64 {
     0
 }
 
-fn success(state: &State, goal_state: &State) -> bool {
+fn success<S: State>(state: &S, goal_state: &S) -> bool {
     state.agent.inventory == goal_state.agent.inventory
 }
 
-pub fn print_plan(plan: Vec<AgentAction>) {
-    for agent_action in plan {
+pub fn print_plan<S: State>(plan: GenericActions<S>) {
+    for agent_action in plan.0 {
         println!("---------------------------");
         println!("Action: {:#?}", agent_action);
     }

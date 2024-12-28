@@ -4,7 +4,7 @@
 // e.g. For an agent to pick something up; the information about the item, where it is, and the agent's inventory must all be included in the state.
 // So we need some process for constructing and deconstructing the state for each agent.
 // - States can then be augmented with agent perception.
-trait State: Clone + PartialEq + Eq {
+trait State: std::fmt::Debug + Clone + PartialEq + Eq {
     fn generate_available_actions(&self) -> GenericActions<Self>;
 }
 
@@ -17,13 +17,9 @@ trait Action<S: State> {
     fn prerequisite(&self, _current_state: &S) -> bool;
 }
 
-#[derive(Debug)]
 struct GenericAction<S: State>(Box<dyn Action<S>>);
-
-#[derive(Debug)]
 struct GenericActions<S: State>(Vec<GenericAction<S>>);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Node<S: State> {
     state: S,
     available_actions: GenericActions<S>,
@@ -84,7 +80,7 @@ fn heuristic<S: State>(_: &Node<S>) -> u64 {
 }
 
 fn success<S: State>(state: &S, goal_state: &S) -> bool {
-    state.agent.inventory == goal_state.agent.inventory
+    state == goal_state
 }
 
 pub fn print_plan<S: State>(plan: GenericActions<S>) {

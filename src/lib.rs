@@ -107,7 +107,7 @@ pub fn run() {
             if let Some(p) = movement_left.pop() {
                 state.villager.position = p;
             } else if let Some(current_action) = plan_iter.next() {
-                if let crate::actions::VillagerActionEnum::MoveToNearestItemAction(move_action) =
+                if let crate::actions::VillagerActionEnum::MoveToNearestItem(move_action) =
                     current_action
                 {
                     let goal_state = move_action.act(state.clone());
@@ -117,8 +117,7 @@ pub fn run() {
                         &goal_state.villager.position,
                         |(x, y)| -> Vec<((i64, i64), i32)> {
                             (-1..=1)
-                                .map(move |i| (-1..=1).map(move |j| ((x + i, y + j), 1)))
-                                .flatten()
+                                .flat_map(move |i| (-1..=1).map(move |j| ((x + i, y + j), 1)))
                                 .collect()
                         },
                         |&(x, y)| -> i32 {
@@ -157,11 +156,11 @@ pub fn run() {
         }
 
         // Limit camera rotation to 80 degrees
-        camera.rotation = camera.rotation.max(-40.0).min(40.0);
+        camera.rotation = camera.rotation.clamp(-40.0, 40.0);
 
         // zoom controls
         camera.zoom += rl.get_mouse_wheel_move() * 0.05;
-        camera.zoom = camera.zoom.max(0.1).min(3.0);
+        camera.zoom = camera.zoom.clamp(0.1, 3.0);
 
         if rl.is_key_pressed(KEY_R) {
             camera.zoom = 1.0;

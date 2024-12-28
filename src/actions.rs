@@ -16,10 +16,10 @@ impl State for VillageState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum VillagerActionEnum {
-    MoveToNearestItemAction(MoveToNearestItemAction),
-    MoveAction(MoveAction),
-    ChopTreeAction(ChopTreeAction),
-    PickUpItemAction(PickUpItemAction),
+    MoveToNearestItem(MoveToNearestItem),
+    Move(Move),
+    ChopTree(ChopTree),
+    PickUpItem(PickUpItem),
 }
 
 impl ActionEnum<VillageState> for VillagerActionEnum {
@@ -29,43 +29,43 @@ impl ActionEnum<VillageState> for VillagerActionEnum {
         let (agent_x, agent_y) = current_state.villager.position;
 
         // Needed to allow agent to return to start point.
-        available_actions.push(Self::MoveAction(MoveAction {
-            delta_x: -agent_x as i64,
-            delta_y: -agent_y as i64,
+        available_actions.push(Self::Move(Move {
+            delta_x: { -agent_x },
+            delta_y: { -agent_y },
         }));
 
-        let tree_action = Self::MoveToNearestItemAction(MoveToNearestItemAction {
+        let tree_action = Self::MoveToNearestItem(MoveToNearestItem {
             target_item_id: "tree".to_string(),
         });
-        if tree_action.prerequisite(&current_state) {
+        if tree_action.prerequisite(current_state) {
             available_actions.push(tree_action);
         }
 
-        let stone_action = Self::MoveToNearestItemAction(MoveToNearestItemAction {
+        let stone_action = Self::MoveToNearestItem(MoveToNearestItem {
             target_item_id: "stone".to_string(),
         });
-        if stone_action.prerequisite(&current_state) {
+        if stone_action.prerequisite(current_state) {
             available_actions.push(stone_action);
         }
 
-        let berry_action = Self::MoveToNearestItemAction(MoveToNearestItemAction {
+        let berry_action = Self::MoveToNearestItem(MoveToNearestItem {
             target_item_id: "berry".to_string(),
         });
-        if berry_action.prerequisite(&current_state) {
+        if berry_action.prerequisite(current_state) {
             available_actions.push(berry_action);
         }
 
         for item in current_state.items.clone() {
-            if item.position == (agent_x as i64, agent_y as i64) {
+            if item.position == (agent_x, agent_y) {
                 if item.id == *"tree" {
-                    let action = ChopTreeAction { item: item.clone() };
-                    if action.prerequisite(&current_state) {
-                        available_actions.push(Self::ChopTreeAction(action));
+                    let action = ChopTree { item: item.clone() };
+                    if action.prerequisite(current_state) {
+                        available_actions.push(Self::ChopTree(action));
                     }
                 } else {
-                    let action = PickUpItemAction { item: item.clone() };
-                    if action.prerequisite(&current_state) {
-                        available_actions.push(Self::PickUpItemAction(action));
+                    let action = PickUpItem { item: item.clone() };
+                    if action.prerequisite(current_state) {
+                        available_actions.push(Self::PickUpItem(action));
                     }
                 }
             }
@@ -80,38 +80,38 @@ impl Action<VillageState> for VillagerActionEnum {
 
     fn act(&self, current_state: VillageState) -> VillageState {
         match self {
-            VillagerActionEnum::MoveToNearestItemAction(a) => a.act(current_state),
-            VillagerActionEnum::MoveAction(a) => a.act(current_state),
-            VillagerActionEnum::ChopTreeAction(a) => a.act(current_state),
-            VillagerActionEnum::PickUpItemAction(a) => a.act(current_state),
+            VillagerActionEnum::MoveToNearestItem(a) => a.act(current_state),
+            VillagerActionEnum::Move(a) => a.act(current_state),
+            VillagerActionEnum::ChopTree(a) => a.act(current_state),
+            VillagerActionEnum::PickUpItem(a) => a.act(current_state),
         }
     }
 
     fn cost(&self) -> u64 {
         match self {
-            VillagerActionEnum::MoveToNearestItemAction(a) => a.cost(),
-            VillagerActionEnum::MoveAction(a) => a.cost(),
-            VillagerActionEnum::ChopTreeAction(a) => a.cost(),
-            VillagerActionEnum::PickUpItemAction(a) => a.cost(),
+            VillagerActionEnum::MoveToNearestItem(a) => a.cost(),
+            VillagerActionEnum::Move(a) => a.cost(),
+            VillagerActionEnum::ChopTree(a) => a.cost(),
+            VillagerActionEnum::PickUpItem(a) => a.cost(),
         }
     }
 
     fn prerequisite(&self, current_state: &VillageState) -> bool {
         match self {
-            VillagerActionEnum::MoveToNearestItemAction(a) => a.prerequisite(current_state),
-            VillagerActionEnum::MoveAction(a) => a.prerequisite(current_state),
-            VillagerActionEnum::ChopTreeAction(a) => a.prerequisite(current_state),
-            VillagerActionEnum::PickUpItemAction(a) => a.prerequisite(current_state),
+            VillagerActionEnum::MoveToNearestItem(a) => a.prerequisite(current_state),
+            VillagerActionEnum::Move(a) => a.prerequisite(current_state),
+            VillagerActionEnum::ChopTree(a) => a.prerequisite(current_state),
+            VillagerActionEnum::PickUpItem(a) => a.prerequisite(current_state),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct MoveToNearestItemAction {
+pub(crate) struct MoveToNearestItem {
     target_item_id: String,
 }
 
-impl MoveToNearestItemAction {
+impl MoveToNearestItem {
     fn get_new_position(&self, current_state: &VillageState) -> Option<(i64, i64)> {
         let (current_x, current_y) = current_state.villager.position;
         current_state
@@ -125,7 +125,7 @@ impl MoveToNearestItemAction {
     }
 }
 
-impl Action<VillageState> for MoveToNearestItemAction {
+impl Action<VillageState> for MoveToNearestItem {
     fn act(&self, current_state: VillageState) -> VillageState {
         let mut new_state = current_state.clone();
         new_state.villager.position = self
@@ -155,19 +155,19 @@ impl Action<VillageState> for MoveToNearestItemAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct MoveAction {
+pub(crate) struct Move {
     delta_x: i64,
     delta_y: i64,
 }
 
-impl MoveAction {
+impl Move {
     fn get_new_position(&self, current_state: &VillageState) -> (i64, i64) {
         let (current_x, current_y) = current_state.villager.position;
         (current_x + self.delta_x, current_y + self.delta_y)
     }
 }
 
-impl Action<VillageState> for MoveAction {
+impl Action<VillageState> for Move {
     fn act(&self, current_state: VillageState) -> VillageState {
         let mut new_state = current_state.clone();
         new_state.villager.position = self.get_new_position(&current_state);
@@ -192,11 +192,11 @@ impl Action<VillageState> for MoveAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct PickUpItemAction {
+pub(crate) struct PickUpItem {
     item: Item,
 }
 
-impl Action<VillageState> for PickUpItemAction {
+impl Action<VillageState> for PickUpItem {
     fn act(&self, current_state: VillageState) -> VillageState {
         let mut new_state = current_state.clone();
         new_state.villager.inventory.push(self.item.id.clone());
@@ -219,11 +219,11 @@ impl Action<VillageState> for PickUpItemAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct ChopTreeAction {
+pub(crate) struct ChopTree {
     item: Item,
 }
 
-impl Action<VillageState> for ChopTreeAction {
+impl Action<VillageState> for ChopTree {
     fn act(&self, current_state: VillageState) -> VillageState {
         let mut new_state = current_state.clone();
 

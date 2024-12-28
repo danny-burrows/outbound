@@ -1,4 +1,4 @@
-use outbound::goap::{generate_goal_state, plan, print_plan, Action, Agent, Item, State};
+use outbound::goap::{plan, print_plan, Action, Agent, Item, State};
 use outbound::Villager;
 use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
@@ -7,6 +7,16 @@ const MAX_BUILDINGS: usize = 100;
 const MAX_TREES: usize = 250;
 const MAX_BERRIES: usize = 50;
 const MAX_STONE: usize = 25;
+
+pub fn generate_goal_state(current_state: &State) -> State {
+    let mut goal_state = current_state.clone();
+    goal_state.agent.inventory.push("wood".to_string());
+    goal_state.agent.inventory.push("stone".to_string());
+    goal_state.agent.inventory.push("berry".to_string());
+    goal_state.agent.inventory.push("wood".to_string());
+    goal_state.agent.inventory.push("wood".to_string());
+    goal_state
+}
 
 fn main() {
     let villager = Villager::new();

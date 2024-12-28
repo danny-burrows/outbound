@@ -34,16 +34,6 @@ impl State {
     }
 }
 
-pub fn generate_goal_state(current_state: &State) -> State {
-    let mut goal_state = current_state.clone();
-    goal_state.agent.inventory.push("wood".to_string());
-    goal_state.agent.inventory.push("stone".to_string());
-    goal_state.agent.inventory.push("berry".to_string());
-    goal_state.agent.inventory.push("wood".to_string());
-    goal_state.agent.inventory.push("wood".to_string());
-    goal_state
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AgentAction {
     MoveAction(MoveAction),

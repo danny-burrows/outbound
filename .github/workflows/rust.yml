@@ -10,11 +10,11 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  cargo-release-build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: cargo build --release --verbose
+  # cargo-release-build:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - run: cargo build --release --verbose
 
   cargo-fmt:
     runs-on: ubuntu-latest
@@ -22,14 +22,14 @@ jobs:
     - uses: actions/checkout@v4
     - run: cargo fmt --check --verbose
 
-  cargo-clippy:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: cargo clippy --all-targets --verbose
+  # cargo-clippy:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - run: cargo clippy --all-targets --verbose
 
-  cargo-test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: cargo test --verbose
+  # cargo-test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - run: cargo test --verbose

@@ -82,12 +82,39 @@ fn main() {
         zoom: 1.0,
     };
 
+    let mut movement_left = vec![];
     let mut act_offset = 0;
 
     while !rl.window_should_close() {
-        if act_offset % 90 == 0 {
-            if let Some(action) = plan_iter.next() {
-                state = action.act(state);
+        if act_offset % 20 == 0 {
+            if let Some(p) = movement_left.pop() {
+                state.agent.position = p;
+            } else if let Some(current_action) = plan_iter.next() {
+                if let outbound::goap::AgentAction::MoveToNearestItemAction(move_action) =
+                    current_action
+                {
+                    let goal_state = move_action.act(state.clone());
+                    let (gx, gy) = state.agent.position;
+
+                    if let Some((movement, _)) = pathfinding::directed::astar::astar(
+                        &goal_state.agent.position,
+                        |(x, y)| -> Vec<((i64, i64), i32)> {
+                            (-1..=1)
+                                .map(move |i| (-1..=1).map(move |j| ((x + i, y + j), 1)))
+                                .flatten()
+                                .collect()
+                        },
+                        |&(x, y)| -> i32 {
+                            (((gx - x) as f32).powf(2.0) + ((gy - y) as f32).powf(2.0)).sqrt()
+                                as i32
+                        },
+                        |&(x, y)| -> bool { x == gx && y == gy },
+                    ) {
+                        movement_left = movement;
+                    }
+                } else {
+                    state = current_action.act(state);
+                }
             }
         }
         act_offset += 1;

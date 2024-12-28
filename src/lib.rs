@@ -17,7 +17,7 @@ const MAX_TREES: usize = 250;
 const MAX_BERRIES: usize = 50;
 const MAX_STONE: usize = 25;
 
-pub fn generate_goal_state(current_state: &VillageState) -> VillageState {
+pub(crate) fn generate_goal_state(current_state: &VillageState) -> VillageState {
     let mut goal_state = current_state.clone();
     goal_state.villager.inventory.push("wood".to_string());
     goal_state.villager.inventory.push("stone".to_string());

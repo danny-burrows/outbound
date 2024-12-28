@@ -40,12 +40,14 @@ pub fn generate_goal_state(current_state: &State) -> State {
     goal_state.agent.inventory.push("stone".to_string());
     goal_state.agent.inventory.push("berry".to_string());
     goal_state.agent.inventory.push("wood".to_string());
+    goal_state.agent.inventory.push("wood".to_string());
     goal_state
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AgentAction {
     MoveAction(MoveAction),
+    MoveToNearestItemAction(MoveToNearestItemAction),
     PickUpAction(PickUpAction),
     ChopTreeAction(ChopTreeAction),
 }
@@ -54,6 +56,9 @@ impl Action for AgentAction {
     fn act(&self, current_state: State) -> State {
         match self {
             AgentAction::MoveAction(move_action) => move_action.act(current_state),
+            AgentAction::MoveToNearestItemAction(move_to_nearest_item_action) => {
+                move_to_nearest_item_action.act(current_state)
+            }
             AgentAction::PickUpAction(pick_up_action) => pick_up_action.act(current_state),
             AgentAction::ChopTreeAction(chop_tree_action) => chop_tree_action.act(current_state),
         }
@@ -62,6 +67,9 @@ impl Action for AgentAction {
     fn cost(&self) -> u64 {
         match self {
             AgentAction::MoveAction(move_action) => move_action.cost(),
+            AgentAction::MoveToNearestItemAction(move_to_nearest_item_action) => {
+                move_to_nearest_item_action.cost()
+            }
             AgentAction::PickUpAction(pick_up_action) => pick_up_action.cost(),
             AgentAction::ChopTreeAction(chop_tree_action) => chop_tree_action.cost(),
         }
@@ -70,6 +78,9 @@ impl Action for AgentAction {
     fn prerequisite(&self, current_state: &State) -> bool {
         match self {
             AgentAction::MoveAction(move_action) => move_action.prerequisite(current_state),
+            AgentAction::MoveToNearestItemAction(move_to_nearest_item_action) => {
+                move_to_nearest_item_action.prerequisite(current_state)
+            }
             AgentAction::PickUpAction(pick_up_action) => pick_up_action.prerequisite(current_state),
             AgentAction::ChopTreeAction(chop_tree_action) => {
                 chop_tree_action.prerequisite(current_state)
@@ -97,25 +108,94 @@ pub fn generate_available_actions(current_state: &State) -> Vec<AgentAction> {
         delta_y: -agent_y,
     }));
 
-    for item in current_state.items.clone() {
-        let action = if item.position != current_state.agent.position {
-            let (item_x, item_y) = item.position;
-            AgentAction::MoveAction(MoveAction {
-                delta_x: item_x - agent_x,
-                delta_y: item_y - agent_y,
-            })
-        } else if item.id == *"tree" {
-            AgentAction::ChopTreeAction(ChopTreeAction { item: item.clone() })
-        } else {
-            AgentAction::PickUpAction(PickUpAction { item: item.clone() })
-        };
+    let tree_action = AgentAction::MoveToNearestItemAction(MoveToNearestItemAction {
+        target_item_id: "tree".to_string(),
+    });
+    if tree_action.prerequisite(current_state) {
+        available_actions.push(tree_action);
+    }
 
-        if action.prerequisite(current_state) {
-            available_actions.push(action);
+    let stone_action = AgentAction::MoveToNearestItemAction(MoveToNearestItemAction {
+        target_item_id: "stone".to_string(),
+    });
+    if stone_action.prerequisite(current_state) {
+        available_actions.push(stone_action);
+    }
+
+    let berry_action = AgentAction::MoveToNearestItemAction(MoveToNearestItemAction {
+        target_item_id: "berry".to_string(),
+    });
+    if berry_action.prerequisite(current_state) {
+        available_actions.push(berry_action);
+    }
+
+    for item in current_state.items.clone() {
+        if item.position == current_state.agent.position {
+            if item.id == *"tree" {
+                let action = AgentAction::ChopTreeAction(ChopTreeAction { item: item.clone() });
+                if action.prerequisite(current_state) {
+                    available_actions.push(action);
+                }
+            } else {
+                let action = AgentAction::PickUpAction(PickUpAction { item: item.clone() });
+                if action.prerequisite(current_state) {
+                    available_actions.push(action);
+                }
+            }
         }
     }
 
+    // println!("{}", available_actions.len());
+
     available_actions
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MoveToNearestItemAction {
+    target_item_id: String,
+}
+
+impl MoveToNearestItemAction {
+    fn get_new_position(&self, current_state: &State) -> Option<(i64, i64)> {
+        let (current_x, current_y) = current_state.agent.position;
+        current_state
+            .items
+            .iter()
+            .filter_map(|item| (item.id == self.target_item_id).then_some(item.position))
+            .min_by_key(|(ix, iy)| {
+                (((ix - current_x) as f64).powf(2.0) + ((iy - current_y) as f64).powf(2.0)).sqrt()
+                    as u64
+            })
+    }
+}
+
+impl Action for MoveToNearestItemAction {
+    fn act(&self, current_state: State) -> State {
+        let mut new_state = current_state.clone();
+        new_state.agent.position = self
+            .get_new_position(&current_state)
+            .expect("If we passed prerequisite there should be something here!");
+        new_state
+    }
+
+    fn cost(&self) -> u64 {
+        // TODO
+        5
+    }
+
+    fn prerequisite(&self, current_state: &State) -> bool {
+        // Check that new position is not out of bounds
+        const WORLD_MAX: i64 = 151;
+
+        if let Some(new_position) = self.get_new_position(current_state) {
+            new_position.0 > -1
+                && new_position.0 < WORLD_MAX
+                && new_position.1 > -1
+                && new_position.1 < WORLD_MAX
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -286,7 +366,7 @@ fn heuristic(_: &Node) -> u64 {
 }
 
 fn success(state: &State, goal_state: &State) -> bool {
-    state.agent == goal_state.agent
+    state.agent.inventory == goal_state.agent.inventory
 }
 
 pub fn print_plan(plan: Vec<AgentAction>) {

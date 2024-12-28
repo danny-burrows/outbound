@@ -50,6 +50,9 @@ fn main() {
     print_plan(plan.clone());
 
     let mut plan_iter = plan.iter();
+
+    let building_site = Rectangle::new(30.0, 20.0, 25.0, 25.0);
+
     let mut player = Rectangle::new(400.0, 280.0, 40.0, 40.0);
     let mut buildings = Vec::with_capacity(MAX_BUILDINGS);
     let mut build_colors = Vec::with_capacity(MAX_BUILDINGS);
@@ -126,6 +129,8 @@ fn main() {
         {
             let mut d2 = d.begin_mode2D(camera);
             d2.draw_rectangle(-6000, 320, 13000, 8000, Color::DARKGRAY);
+
+            d2.draw_rectangle_lines_ex(building_site, 1.0, Color::LIMEGREEN);
 
             for i in 0..MAX_BUILDINGS {
                 d2.draw_rectangle_rec(buildings[i], build_colors[i]);

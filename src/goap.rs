@@ -147,7 +147,11 @@ impl Action for MoveAction {
     fn prerequisite(&self, current_state: &State) -> bool {
         // Check that new position is not out of bounds
         let new_position = self.get_new_position(current_state);
-        new_position.0 > -1 && new_position.0 < 11 && new_position.1 > -1 && new_position.1 < 11
+        const WORLD_MAX: i64 = 26;
+        new_position.0 > -1
+            && new_position.0 < WORLD_MAX
+            && new_position.1 > -1
+            && new_position.1 < WORLD_MAX
     }
 }
 

@@ -4,9 +4,9 @@ use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
 
 const MAX_BUILDINGS: usize = 100;
-const MAX_TREES: usize = 10;
+const MAX_TREES: usize = 6;
 const MAX_BERRIES: usize = 4;
-const MAX_STONE: usize = 5;
+const MAX_STONE: usize = 3;
 
 fn main() {
     let villager = Villager::new();
@@ -23,18 +23,18 @@ fn main() {
 
     let mut items = Vec::with_capacity(MAX_BERRIES + MAX_STONE + MAX_TREES);
     for _ in 0..MAX_TREES {
-        let rx: i64 = rl.get_random_value(-10..10);
-        let ry: i64 = rl.get_random_value(-10..10);
+        let rx: i64 = rl.get_random_value(0..25);
+        let ry: i64 = rl.get_random_value(0..25);
         items.push(Item::new("tree".to_string(), (rx, ry)));
     }
     for _ in 0..MAX_BERRIES {
-        let rx: i64 = rl.get_random_value(-10..10);
-        let ry: i64 = rl.get_random_value(-10..10);
+        let rx: i64 = rl.get_random_value(0..25);
+        let ry: i64 = rl.get_random_value(0..25);
         items.push(Item::new("berry".to_string(), (rx, ry)));
     }
     for _ in 0..MAX_STONE {
-        let rx: i64 = rl.get_random_value(-10..10);
-        let ry: i64 = rl.get_random_value(-10..10);
+        let rx: i64 = rl.get_random_value(0..25);
+        let ry: i64 = rl.get_random_value(0..25);
         items.push(Item::new("stone".to_string(), (rx, ry)));
     }
 

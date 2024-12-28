@@ -131,11 +131,10 @@ fn main() {
                 d2.draw_rectangle_rec(buildings[i], build_colors[i]);
             }
 
-            d2.draw_rectangle(
-                state.agent.position.0 as i32 - 2,
-                state.agent.position.1 as i32 - 2,
-                4,
-                4,
+            d2.draw_circle(
+                state.agent.position.0 as i32,
+                state.agent.position.1 as i32,
+                3.0,
                 Color::BLUE,
             );
 
@@ -143,11 +142,13 @@ fn main() {
                 let c = if &i.id == "tree" {
                     Color::LAWNGREEN
                 } else if &i.id == "berry" {
-                    Color::DARKRED
+                    Color::PURPLE
+                } else if &i.id == "wood" {
+                    Color::BROWN
                 } else {
                     Color::GRAY
                 };
-                d2.draw_rectangle(i.position.0 as i32, i.position.1 as i32, 2, 2, c);
+                d2.draw_circle(i.position.0 as i32, i.position.1 as i32, 2.0, c);
             }
             d2.draw_rectangle_rec(villager_rect, Color::BLUE);
             d2.draw_rectangle_rec(player, Color::RED);

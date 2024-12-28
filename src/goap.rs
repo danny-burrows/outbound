@@ -4,12 +4,14 @@
 // e.g. For an agent to pick something up; the information about the item, where it is, and the agent's inventory must all be included in the state.
 // So we need some process for constructing and deconstructing the state for each agent.
 // - States can then be augmented with agent perception.
-trait State: std::fmt::Debug + Clone + PartialEq + Eq {
-    fn generate_available_actions(&self) -> GenericActions<Self>;
+trait State: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
+    fn generate_available_actions<S: State, SA: ActionEnum<S>>(&self) -> Vec<SA>;
 }
 
 // Actions describe changes to the input State and can be generated on the fly. For example, a MoveAction moves the Agent toward a certain item.
-trait Action<S: State> {
+// WARN: I've tried a million times to implement this as a trait object but cannot manage it. A mixture of the pathfinding crate (because of Node
+// requiring Eq which is not object safe) and other things have forced this into an Enum.
+trait ActionEnum<S: State>: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
     fn act(&self, current_state: S) -> S;
 
     fn cost(&self) -> u64;
@@ -17,23 +19,19 @@ trait Action<S: State> {
     fn prerequisite(&self, _current_state: &S) -> bool;
 }
 
-struct GenericAction<S: State>(Box<dyn Action<S>>);
-struct GenericActions<S: State>(Vec<GenericAction<S>>);
-
-struct Node<S: State> {
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct Node<S: State, SA: ActionEnum<S>> {
     state: S,
-    available_actions: GenericActions<S>,
-    action: Option<GenericAction<S>>,
+    action: Option<SA>,
 }
 
-pub fn plan<S: State>(current_state: S, goal_state: S) -> Option<GenericActions<S>> {
+pub fn plan<S: State, SA: ActionEnum<S>>(current_state: S, goal_state: S) -> Option<Vec<SA>> {
     // 1. Generate a directed graph sensibly, stopping when exusted with the PATIENCE value.
     // 2. Use some algorithm to find the shortest path from current_state to goal_state.
     // 3. Return that path as a Plan.
 
     let start = Node {
-        state: current_state.clone(),
-        available_actions: current_state.generate_available_actions(),
+        state: current_state,
         action: None,
     };
 
@@ -47,7 +45,7 @@ pub fn plan<S: State>(current_state: S, goal_state: S) -> Option<GenericActions<
     if let Some((best_path, _)) = best_path_option {
         let actions = best_path
             .into_iter()
-            .filter_map(|node| node.action.clone())
+            .filter_map(|node| node.action)
             .collect();
 
         Some(actions)
@@ -56,17 +54,15 @@ pub fn plan<S: State>(current_state: S, goal_state: S) -> Option<GenericActions<
     }
 }
 
-fn successors<S: State>(node: &Node<S>) -> Vec<(Node<S>, u64)> {
-    node.available_actions
+fn successors<S: State, SA: ActionEnum<S>>(node: &Node<S, SA>) -> Vec<(Node<S, SA>, u64)> {
+    let available_actions: Vec<SA> = node.state.generate_available_actions();
+    available_actions
         .iter()
         .map(|agent_action| {
             let new_state = agent_action.act(node.state.clone());
-            let new_available_actions = new_state.generate_available_actions();
-
             let cost = agent_action.cost();
             let next_node = Node {
                 state: new_state,
-                available_actions: new_available_actions,
                 action: Some(agent_action.clone()),
             };
 
@@ -75,7 +71,7 @@ fn successors<S: State>(node: &Node<S>) -> Vec<(Node<S>, u64)> {
         .collect()
 }
 
-fn heuristic<S: State>(_: &Node<S>) -> u64 {
+fn heuristic<S: State, SA: ActionEnum<S>>(_: &Node<S, SA>) -> u64 {
     0
 }
 
@@ -83,8 +79,8 @@ fn success<S: State>(state: &S, goal_state: &S) -> bool {
     state == goal_state
 }
 
-pub fn print_plan<S: State>(plan: GenericActions<S>) {
-    for agent_action in plan.0 {
+pub fn print_plan<S: State, SA: ActionEnum<S>>(plan: Vec<SA>) {
+    for agent_action in plan {
         println!("---------------------------");
         println!("Action: {:#?}", agent_action);
     }

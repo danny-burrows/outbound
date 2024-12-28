@@ -1,5 +1,7 @@
 pub mod goap;
 
+use raylib::prelude::Vector2;
+
 struct Health(Option<u8>);
 
 impl Health {
@@ -30,28 +32,22 @@ impl Default for Health {
     }
 }
 
-struct Inventory {}
-
+#[derive(Default)]
 pub struct Villager {
+    position: Vector2,
     health: Health,
-    inventory: Inventory,
+    inventory: Vec<String>,
 }
 
 impl Villager {
-    pub fn new() -> Self {
+    pub fn new(position: Vector2) -> Self {
         Villager {
-            health: Health::default(),
-            inventory: Inventory {},
+            position,
+            ..Default::default()
         }
     }
 
     pub fn is_alive(&self) -> bool {
         self.health.check().is_some()
-    }
-}
-
-impl Default for Villager {
-    fn default() -> Self {
-        Self::new()
     }
 }

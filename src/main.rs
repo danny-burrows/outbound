@@ -19,7 +19,7 @@ pub fn generate_goal_state(current_state: &State) -> State {
 }
 
 fn main() {
-    let villager = Villager::new();
+    let villager = Villager::default();
     let villager_is_alive = villager.is_alive();
     let villager_rect = Rectangle::new(10.0, 25.0, 10.0, 10.0);
 

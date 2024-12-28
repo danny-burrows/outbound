@@ -4,14 +4,21 @@
 // e.g. For an agent to pick something up; the information about the item, where it is, and the agent's inventory must all be included in the state.
 // So we need some process for constructing and deconstructing the state for each agent.
 // - States can then be augmented with agent perception.
-trait State: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
-    fn generate_available_actions<S: State, SA: ActionEnum<S>>(&self) -> Vec<SA>;
+pub trait State: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
+    fn compare(&self, other_state: &Self) -> bool {
+        self == other_state
+    }
 }
 
 // Actions describe changes to the input State and can be generated on the fly. For example, a MoveAction moves the Agent toward a certain item.
-// WARN: I've tried a million times to implement this as a trait object but cannot manage it. A mixture of the pathfinding crate (because of Node
-// requiring Eq which is not object safe) and other things have forced this into an Enum.
-trait ActionEnum<S: State>: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
+//
+// WARN: I've tried a million times to implement `Action` as a trait object but cannot manage it hence `ActionEnum`. A mixture of the pathfinding
+// crate (because of Node requiring Eq which is not object safe) and other things have forced this into an Enum.
+pub trait ActionEnum<S: State>: Action<S> {
+    fn generate_available_actions(current_state: &S) -> Vec<Self>;
+}
+
+pub trait Action<S: State>: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
     fn act(&self, current_state: S) -> S;
 
     fn cost(&self) -> u64;
@@ -55,7 +62,7 @@ pub fn plan<S: State, SA: ActionEnum<S>>(current_state: S, goal_state: S) -> Opt
 }
 
 fn successors<S: State, SA: ActionEnum<S>>(node: &Node<S, SA>) -> Vec<(Node<S, SA>, u64)> {
-    let available_actions: Vec<SA> = node.state.generate_available_actions();
+    let available_actions: Vec<SA> = SA::generate_available_actions(&node.state);
     available_actions
         .iter()
         .map(|agent_action| {
@@ -76,7 +83,7 @@ fn heuristic<S: State, SA: ActionEnum<S>>(_: &Node<S, SA>) -> u64 {
 }
 
 fn success<S: State>(state: &S, goal_state: &S) -> bool {
-    state == goal_state
+    state.compare(goal_state)
 }
 
 pub fn print_plan<S: State, SA: ActionEnum<S>>(plan: Vec<SA>) {

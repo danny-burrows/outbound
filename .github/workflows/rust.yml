@@ -10,23 +10,18 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-dev-image:
+  docker-build-outbound-dev:
     runs-on: ubuntu-latest
     steps:
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: docker/dev
-          push: false
-          tags: "outbound/dev:latest"
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+      - uses: actions/checkout@v2
+        run: |
+          docker build -t outbound-dev docker/dev
+  
   cargo-release-build:
-    needs: build-dev-image
+    needs: docker-build-outbound-dev
     runs-on: ubuntu-latest
     container:
-      image: outbound/dev:latest
+      image: outbound-dev
     steps:
       - uses: actions/checkout@v4
       - run: cargo build --release --verbose

@@ -47,7 +47,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: outbound-linux-amd64-ubuntu
-          path: ~/target/release/outbound
+          path: target/release/outbound
 
   cargo-clippy:
     needs: docker-build-outbound-dev

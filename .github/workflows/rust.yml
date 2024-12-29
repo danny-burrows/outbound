@@ -19,14 +19,27 @@ jobs:
   docker-build-outbound-dev:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - run: |
-          docker build -t outbound-dev docker/dev
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: docker/dev
+          tags: outbound-dev:latest
+          outputs: type=docker,dest=/tmp/outbound-dev.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outbound-dev
+          path: /tmp/outbound-dev.tar
 
   cargo-release-build:
     needs: docker-build-outbound-dev
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: outbound-dev
+          path: /tmp
+      - run: |
+          docker load --input /tmp/outbound-dev.tar
       - uses: actions/checkout@v4
       - run: |
           docker run --rm -v $(pwd):/code -w /code outbound-dev cargo build --release --verbose

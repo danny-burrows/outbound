@@ -175,10 +175,23 @@ pub fn run() {
         // );
         camera.target = Vector2::new(0.0, 0.0);
 
-        // Camera rotation controls
+        if rl.is_key_down(KEY_W) {
+            camera.offset.y += 1.0;
+        }
+        if rl.is_key_down(KEY_S) {
+            camera.offset.y -= 1.0;
+        }
         if rl.is_key_down(KEY_A) {
+            camera.offset.x += 1.0;
+        }
+        if rl.is_key_down(KEY_D) {
+            camera.offset.x -= 1.0;
+        }
+
+        // Camera rotation controls
+        if rl.is_key_down(KEY_Q) {
             camera.rotation -= 1.0;
-        } else if rl.is_key_down(KEY_S) {
+        } else if rl.is_key_down(KEY_E) {
             camera.rotation += 1.0;
         }
 

@@ -10,27 +10,26 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  cargo-fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --check --verbose
+
   docker-build-outbound-dev:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - run: |
           docker build -t outbound-dev docker/dev
-  
+
   cargo-release-build:
     needs: docker-build-outbound-dev
     runs-on: ubuntu-latest
-    container:
-      image: outbound-dev
     steps:
       - uses: actions/checkout@v4
-      - run: cargo build --release --verbose
-
-  cargo-fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cargo fmt --check --verbose
+      - run: |
+          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo build --release --verbose
 
   # cargo-clippy:
   #   runs-on: ubuntu-latest

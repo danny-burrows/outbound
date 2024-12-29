@@ -208,17 +208,13 @@ pub fn run() {
                 d2.draw_rectangle_rec(buildings[i], build_colors[i]);
             }
 
-            d2.draw_circle(
-                state.villager.position.0 as i32,
-                state.villager.position.1 as i32,
+            d2.draw_circle_v(
+                Vector2 {
+                    x: real_villager_position.0,
+                    y: real_villager_position.1,
+                },
                 3.0,
                 Color::BLUE,
-            );
-            d2.draw_circle(
-                real_villager_position.0 as i32,
-                real_villager_position.1 as i32,
-                3.0,
-                Color::BLUEVIOLET,
             );
 
             for i in state.items.clone().into_iter() {

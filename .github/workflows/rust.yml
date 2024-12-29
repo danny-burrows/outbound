@@ -44,15 +44,35 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           docker run --rm -v $(pwd):/code -w /code outbound-dev cargo build --release --verbose
+      - uses: actions/upload-artifact@v4
+        with:
+          name: outbound-linux-amd64-ubuntu
+          path: ~/target/release/outbound
 
-  # cargo-clippy:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - run: cargo clippy --all-targets --verbose
+  cargo-clippy:
+    needs: docker-build-outbound-dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: outbound-dev
+          path: /tmp
+      - run: |
+          docker load --input /tmp/outbound-dev.tar
+      - uses: actions/checkout@v4
+      - run: |
+          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo clippy --all-targets --verbose
 
-  # cargo-test:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - run: cargo test --verbose
+  cargo-test:
+    needs: docker-build-outbound-dev
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: outbound-dev
+          path: /tmp
+      - run: |
+          docker load --input /tmp/outbound-dev.tar
+      - uses: actions/checkout@v4
+      - run: |
+          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo test --verbose

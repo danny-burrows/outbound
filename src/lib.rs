@@ -11,7 +11,6 @@ use crate::goap::{plan, print_plan};
 use crate::item::Item;
 use crate::villager::Villager;
 use actions::VillagerActionEnum;
-use ease::{linear_in, Tween};
 use goals::{CollectBerries, CollectStone, CollectWood};
 use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
@@ -110,7 +109,7 @@ pub fn run() {
             match current_action {
                 VillagerAction::VillagerMoveAction(a) => {
                     if let Some(Vector2 { x, y }) = a.update(delta_time) {
-                        real_villager_position = (x, y).into();
+                        real_villager_position = (x, y);
                         println!("{:?}", real_villager_position);
                         state.villager.position = (x as i64, y as i64);
                     } else {

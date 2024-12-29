@@ -75,7 +75,7 @@ pub(crate) struct VillagerBasicAction {
 }
 
 impl VillagerBasicAction {
-    pub(crate) fn new<'a>(action: Box<dyn FnMut()>) -> Self {
+    pub(crate) fn new(action: Box<dyn FnMut()>) -> Self {
         let tween_step = Tween::new(linear_in, 0.0, 1.0, MOVE_SPEED);
         Self { tween_step, action }
     }

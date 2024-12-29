@@ -3,6 +3,7 @@ mod goals;
 mod goap;
 mod item;
 mod villager;
+mod villager_action;
 
 use crate::actions::VillageState;
 use crate::goap::Action;
@@ -13,6 +14,7 @@ use actions::VillagerActionEnum;
 use goals::{CollectBerries, CollectStone, CollectWood};
 use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
+use villager_action::{VillagerAction, VillagerMoveAction};
 
 const MAX_BUILDINGS: usize = 100;
 const MAX_TREES: usize = 250;
@@ -95,22 +97,38 @@ pub fn run() {
         zoom: 1.0,
     };
 
-    let mut movement_left = vec![];
-    let mut act_offset = 0;
+    let mut real_villager_position = (0.0, 0.0);
+    let mut villager_action: Option<VillagerAction> = None;
+    // let mut movement_left = vec![];
+    // let mut act_offset = 0;
 
     while !rl.window_should_close() {
-        if act_offset % 10 == 0 {
-            if let Some(p) = movement_left.pop() {
-                state.villager.position = p;
-            } else if let Some(current_action) = plan_iter.next() {
-                if let crate::actions::VillagerActionEnum::MoveToNearestItem(move_action) =
-                    current_action
-                {
+        let delta_time = rl.get_frame_time();
+
+        if let Some(current_action) = &mut villager_action {
+            match current_action {
+                VillagerAction::VillagerMoveAction(a) => {
+                    if let Some(Vector2 { x, y }) = a.update(delta_time) {
+                        real_villager_position = (x, y);
+                        state.villager.position = (x as i64, y as i64);
+                    } else {
+                        villager_action = None;
+                    };
+                }
+                VillagerAction::VillagerBasicAction(a) => {
+                    if a.update(delta_time).is_none() {
+                        villager_action = None;
+                    }
+                }
+            }
+        } else if let Some(next_action) = plan_iter.next() {
+            match next_action {
+                VillagerActionEnum::MoveToNearestItem(move_action) => {
                     let goal_state = move_action.act(state.clone());
-                    let (gx, gy) = state.villager.position;
+                    let (gx, gy) = goal_state.villager.position;
 
                     if let Some((movement, _)) = pathfinding::directed::astar::astar(
-                        &goal_state.villager.position,
+                        &state.villager.position,
                         |(x, y)| -> Vec<((i64, i64), i32)> {
                             (-1..=1)
                                 .flat_map(move |i| (-1..=1).map(move |j| ((x + i, y + j), 1)))
@@ -122,19 +140,27 @@ pub fn run() {
                         },
                         |&(x, y)| -> bool { x == gx && y == gy },
                     ) {
-                        movement_left = movement;
+                        villager_action = Some(VillagerAction::VillagerMoveAction(
+                            VillagerMoveAction::new(real_villager_position, &movement),
+                        ));
                     }
-                } else {
-                    state = current_action.act(state);
                 }
-            } else {
-                let plan_option = plan(state.clone(), &villager_goals);
-                plana = plan_option.expect("FAILED TO PLAN");
-                print_plan(plana.clone());
-                plan_iter = plana.iter();
+                VillagerActionEnum::Move(a) => {
+                    state = a.act(state);
+                }
+                VillagerActionEnum::ChopTree(a) => {
+                    state = a.act(state);
+                }
+                VillagerActionEnum::PickUpItem(a) => {
+                    state = a.act(state);
+                }
             }
+        } else {
+            let plan_option = plan(state.clone(), &villager_goals);
+            plana = plan_option.expect("FAILED TO PLAN");
+            print_plan(plana.clone());
+            plan_iter = plana.iter();
         }
-        act_offset += 1;
 
         if rl.is_key_down(KEY_RIGHT) {
             player.x += 2.0;
@@ -149,10 +175,23 @@ pub fn run() {
         // );
         camera.target = Vector2::new(0.0, 0.0);
 
-        // Camera rotation controls
+        if rl.is_key_down(KEY_W) {
+            camera.offset.y += 1.0;
+        }
+        if rl.is_key_down(KEY_S) {
+            camera.offset.y -= 1.0;
+        }
         if rl.is_key_down(KEY_A) {
+            camera.offset.x += 1.0;
+        }
+        if rl.is_key_down(KEY_D) {
+            camera.offset.x -= 1.0;
+        }
+
+        // Camera rotation controls
+        if rl.is_key_down(KEY_Q) {
             camera.rotation -= 1.0;
-        } else if rl.is_key_down(KEY_S) {
+        } else if rl.is_key_down(KEY_E) {
             camera.rotation += 1.0;
         }
 
@@ -180,9 +219,11 @@ pub fn run() {
                 d2.draw_rectangle_rec(buildings[i], build_colors[i]);
             }
 
-            d2.draw_circle(
-                state.villager.position.0 as i32,
-                state.villager.position.1 as i32,
+            d2.draw_circle_v(
+                Vector2 {
+                    x: real_villager_position.0,
+                    y: real_villager_position.1,
+                },
                 3.0,
                 Color::BLUE,
             );

@@ -10,17 +10,32 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # cargo-release-build:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - uses: actions/checkout@v4
-  #   - run: cargo build --release --verbose
+  build-dev-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/dev
+          push: false
+          tags: "outbound/dev:latest"
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  cargo-release-build:
+    needs: build-dev-image
+    runs-on: ubuntu-latest
+    container:
+      image: outbound/dev:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release --verbose
 
   cargo-fmt:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - run: cargo fmt --check --verbose
+      - uses: actions/checkout@v4
+      - run: cargo fmt --check --verbose
 
   # cargo-clippy:
   #   runs-on: ubuntu-latest

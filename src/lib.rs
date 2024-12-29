@@ -3,6 +3,7 @@ mod goals;
 mod goap;
 mod item;
 mod villager;
+mod villager_action;
 
 use crate::actions::VillageState;
 use crate::goap::Action;
@@ -10,9 +11,11 @@ use crate::goap::{plan, print_plan};
 use crate::item::Item;
 use crate::villager::Villager;
 use actions::VillagerActionEnum;
+use ease::{linear_in, Tween};
 use goals::{CollectBerries, CollectStone, CollectWood};
 use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
+use villager_action::{VillagerAction, VillagerMoveAction};
 
 const MAX_BUILDINGS: usize = 100;
 const MAX_TREES: usize = 250;
@@ -95,22 +98,39 @@ pub fn run() {
         zoom: 1.0,
     };
 
-    let mut movement_left = vec![];
-    let mut act_offset = 0;
+    let mut real_villager_position = (0.0, 0.0);
+    let mut villager_action: Option<VillagerAction> = None;
+    // let mut movement_left = vec![];
+    // let mut act_offset = 0;
 
     while !rl.window_should_close() {
-        if act_offset % 10 == 0 {
-            if let Some(p) = movement_left.pop() {
-                state.villager.position = p;
-            } else if let Some(current_action) = plan_iter.next() {
-                if let crate::actions::VillagerActionEnum::MoveToNearestItem(move_action) =
-                    current_action
-                {
+        let delta_time = rl.get_frame_time();
+
+        if let Some(current_action) = &mut villager_action {
+            match current_action {
+                VillagerAction::VillagerMoveAction(a) => {
+                    if let Some(Vector2 { x, y }) = a.update(delta_time) {
+                        real_villager_position = (x, y).into();
+                        println!("{:?}", real_villager_position);
+                        state.villager.position = (x as i64, y as i64);
+                    } else {
+                        villager_action = None;
+                    };
+                }
+                VillagerAction::VillagerBasicAction(a) => {
+                    if a.update(delta_time).is_none() {
+                        villager_action = None;
+                    }
+                }
+            }
+        } else if let Some(next_action) = plan_iter.next() {
+            match next_action {
+                VillagerActionEnum::MoveToNearestItem(move_action) => {
                     let goal_state = move_action.act(state.clone());
-                    let (gx, gy) = state.villager.position;
+                    let (gx, gy) = goal_state.villager.position;
 
                     if let Some((movement, _)) = pathfinding::directed::astar::astar(
-                        &goal_state.villager.position,
+                        &state.villager.position,
                         |(x, y)| -> Vec<((i64, i64), i32)> {
                             (-1..=1)
                                 .flat_map(move |i| (-1..=1).map(move |j| ((x + i, y + j), 1)))
@@ -122,19 +142,27 @@ pub fn run() {
                         },
                         |&(x, y)| -> bool { x == gx && y == gy },
                     ) {
-                        movement_left = movement;
+                        villager_action = Some(VillagerAction::VillagerMoveAction(
+                            VillagerMoveAction::new(real_villager_position, &movement),
+                        ));
                     }
-                } else {
-                    state = current_action.act(state);
                 }
-            } else {
-                let plan_option = plan(state.clone(), &villager_goals);
-                plana = plan_option.expect("FAILED TO PLAN");
-                print_plan(plana.clone());
-                plan_iter = plana.iter();
+                VillagerActionEnum::Move(a) => {
+                    state = a.act(state);
+                }
+                VillagerActionEnum::ChopTree(a) => {
+                    state = a.act(state);
+                }
+                VillagerActionEnum::PickUpItem(a) => {
+                    state = a.act(state);
+                }
             }
+        } else {
+            let plan_option = plan(state.clone(), &villager_goals);
+            plana = plan_option.expect("FAILED TO PLAN");
+            print_plan(plana.clone());
+            plan_iter = plana.iter();
         }
-        act_offset += 1;
 
         if rl.is_key_down(KEY_RIGHT) {
             player.x += 2.0;
@@ -185,6 +213,12 @@ pub fn run() {
                 state.villager.position.1 as i32,
                 3.0,
                 Color::BLUE,
+            );
+            d2.draw_circle(
+                real_villager_position.0 as i32,
+                real_villager_position.1 as i32,
+                3.0,
+                Color::BLUEVIOLET,
             );
 
             for i in state.items.clone().into_iter() {

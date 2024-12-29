@@ -1,4 +1,5 @@
 mod actions;
+mod goals;
 mod goap;
 mod item;
 mod villager;
@@ -9,6 +10,7 @@ use crate::goap::{plan, print_plan};
 use crate::item::Item;
 use crate::villager::Villager;
 use actions::VillagerActionEnum;
+use goals::{CollectBerries, CollectStone, CollectWood};
 use raylib::consts::KeyboardKey::*;
 use raylib::prelude::*;
 
@@ -16,16 +18,6 @@ const MAX_BUILDINGS: usize = 100;
 const MAX_TREES: usize = 250;
 const MAX_BERRIES: usize = 50;
 const MAX_STONE: usize = 25;
-
-pub(crate) fn generate_goal_state(current_state: &VillageState) -> VillageState {
-    let mut goal_state = current_state.clone();
-    goal_state.villager.inventory.push("wood".to_string());
-    goal_state.villager.inventory.push("stone".to_string());
-    goal_state.villager.inventory.push("berry".to_string());
-    goal_state.villager.inventory.push("wood".to_string());
-    goal_state.villager.inventory.push("wood".to_string());
-    goal_state
-}
 
 pub fn run() {
     let villager = Villager::default();
@@ -56,17 +48,21 @@ pub fn run() {
     }
 
     let current_state = VillageState { villager, items };
-    let goal_state = generate_goal_state(&current_state);
 
-    // let available_actions = generate_available_actions(agent, items);
-    let plan_option = plan(current_state.clone(), goal_state);
+    let villager_goals: Vec<Box<dyn goap::Goal<VillageState>>> = vec![
+        Box::new(CollectWood {}),
+        Box::new(CollectStone {}),
+        Box::new(CollectBerries {}),
+    ];
+
+    let plan_option = plan(current_state.clone(), &villager_goals);
 
     let mut state = current_state.clone();
-    let plan: Vec<VillagerActionEnum> = plan_option.expect("FAILED TO PLAN");
+    let mut plana: Vec<VillagerActionEnum> = plan_option.expect("FAILED TO PLAN");
 
-    print_plan(plan.clone());
+    print_plan(plana.clone());
 
-    let mut plan_iter = plan.iter();
+    let mut plan_iter = plana.iter();
 
     let building_site = Rectangle::new(30.0, 20.0, 25.0, 25.0);
 
@@ -103,7 +99,7 @@ pub fn run() {
     let mut act_offset = 0;
 
     while !rl.window_should_close() {
-        if act_offset % 20 == 0 {
+        if act_offset % 10 == 0 {
             if let Some(p) = movement_left.pop() {
                 state.villager.position = p;
             } else if let Some(current_action) = plan_iter.next() {
@@ -131,6 +127,11 @@ pub fn run() {
                 } else {
                     state = current_action.act(state);
                 }
+            } else {
+                let plan_option = plan(state.clone(), &villager_goals);
+                plana = plan_option.expect("FAILED TO PLAN");
+                print_plan(plana.clone());
+                plan_iter = plana.iter();
             }
         }
         act_offset += 1;

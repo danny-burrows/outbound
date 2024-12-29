@@ -4,7 +4,7 @@
 // e.g. For an agent to pick something up; the information about the item, where it is, and the agent's inventory must all be included in the state.
 // So we need some process for constructing and deconstructing the state for each agent.
 // - States can then be augmented with agent perception.
-pub trait State: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
+pub(crate) trait State: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
     fn compare(&self, other_state: &Self) -> bool {
         self == other_state
     }
@@ -14,16 +14,23 @@ pub trait State: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
 //
 // WARN: I've tried a million times to implement `Action` as a trait object but cannot manage it hence `ActionEnum`. A mixture of the pathfinding
 // crate (because of Node requiring Eq which is not object safe) and other things have forced this into an Enum.
-pub trait ActionEnum<S: State>: Action<S> {
+pub(crate) trait ActionEnum<S: State>: Action<S> {
     fn generate_available_actions(current_state: &S) -> Vec<Self>;
 }
 
-pub trait Action<S: State>: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash {
+pub(crate) trait Action<S: State>:
+    std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash
+{
     fn act(&self, current_state: S) -> S;
 
     fn cost(&self) -> u64;
 
     fn prerequisite(&self, _current_state: &S) -> bool;
+}
+
+pub(crate) trait Goal<S: State> {
+    fn priority(&self, current_state: &S) -> i64;
+    fn goal_state(&self, current_state: S) -> S;
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -32,10 +39,20 @@ struct Node<S: State, SA: ActionEnum<S>> {
     action: Option<SA>,
 }
 
-pub fn plan<S: State, SA: ActionEnum<S>>(current_state: S, goal_state: S) -> Option<Vec<SA>> {
+pub(crate) fn plan<S: State, SA: ActionEnum<S>>(
+    current_state: S,
+    goals: &Vec<Box<dyn Goal<S>>>,
+) -> Option<Vec<SA>> {
     // 1. Generate a directed graph sensibly, stopping when exusted with the PATIENCE value.
     // 2. Use some algorithm to find the shortest path from current_state to goal_state.
     // 3. Return that path as a Plan.
+
+    let goal_state = goals
+        .iter()
+        .max_by_key(|g| g.priority(&current_state))?
+        .goal_state(current_state.clone());
+
+    println!("Goal: {:?}", goal_state);
 
     let start = Node {
         state: current_state,
@@ -86,7 +103,7 @@ fn success<S: State>(state: &S, goal_state: &S) -> bool {
     state.compare(goal_state)
 }
 
-pub fn print_plan<S: State, SA: ActionEnum<S>>(plan: Vec<SA>) {
+pub(crate) fn print_plan<S: State, SA: ActionEnum<S>>(plan: Vec<SA>) {
     for agent_action in plan {
         println!("---------------------------");
         println!("Action: {:#?}", agent_action);

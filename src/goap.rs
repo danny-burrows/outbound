@@ -1,4 +1,4 @@
-/// The objective of GOAP is for an `Agent` to find a way from the current `State` -> goal `State` through `Action`s.
+// The objective of GOAP is for an `Agent` to find a way from the current `State` -> goal `State` through `Action`s.
 
 // State MUST be all-encompassing
 // e.g. For an agent to pick something up; the information about the item, where it is, and the agent's inventory must all be included in the state.

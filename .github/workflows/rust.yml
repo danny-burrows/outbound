@@ -61,7 +61,7 @@ jobs:
           docker load --input /tmp/outbound-dev.tar
       - uses: actions/checkout@v4
       - run: |
-          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo clippy --all-targets --verbose
+          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo clippy --all-targets --verbose -- --deny warnings
 
   cargo-test:
     needs: docker-build-outbound-dev

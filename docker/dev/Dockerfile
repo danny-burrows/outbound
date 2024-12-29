@@ -2,7 +2,9 @@ FROM rust:1.83.0-slim-bullseye
 
 RUN apt-get update && apt-get install -y \
   cmake \
+  g++ \
   libasound2-dev \
+  libclang-dev \
   libgl1-mesa-dev \
   libglu1-mesa-dev \
   libx11-dev \

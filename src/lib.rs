@@ -110,7 +110,6 @@ pub fn run() {
                 VillagerAction::VillagerMoveAction(a) => {
                     if let Some(Vector2 { x, y }) = a.update(delta_time) {
                         real_villager_position = (x, y);
-                        println!("{:?}", real_villager_position);
                         state.villager.position = (x as i64, y as i64);
                     } else {
                         villager_action = None;

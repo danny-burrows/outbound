@@ -6,12 +6,14 @@ impl Health {
         Self(Some(amount))
     }
 
+    #[allow(dead_code)]
     pub(crate) fn replenish(&mut self, amount: u8) {
         if let Some(health) = self.0 {
             self.0 = Some(health.saturating_add(amount).min(100))
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn sap(&mut self, amount: u8) {
         if let Some(health) = self.0 {
             self.0 = health.checked_sub(amount)
@@ -37,13 +39,6 @@ pub(crate) struct Villager {
 }
 
 impl Villager {
-    pub(crate) fn new(position: (i64, i64)) -> Self {
-        Villager {
-            position,
-            ..Default::default()
-        }
-    }
-
     pub(crate) fn is_alive(&self) -> bool {
         self.health.check().is_some()
     }

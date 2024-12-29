@@ -224,7 +224,7 @@ pub fn run() {
         d.draw_rectangle(w - 5, 5, 5, h - 10, Color::RED);
         d.draw_rectangle(0, h - 5, w, 5, Color::RED);
 
-        d.draw_rectangle(10, 10, 250, 113, Color::SKYBLUE.fade(0.5));
+        d.draw_rectangle(10, 10, 250, 113, Color::SKYBLUE.alpha(0.5));
         d.draw_rectangle_lines(10, 10, 250, 113, Color::BLUE);
 
         d.draw_text("Free 2d camera controls:", 20, 20, 10, Color::BLACK);

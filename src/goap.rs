@@ -41,7 +41,7 @@ struct Node<S: State, SA: ActionEnum<S>> {
 
 pub(crate) fn plan<S: State, SA: ActionEnum<S>>(
     current_state: S,
-    goals: &Vec<Box<dyn Goal<S>>>,
+    goals: &[Box<dyn Goal<S>>],
 ) -> Option<Vec<SA>> {
     // 1. Generate a directed graph sensibly, stopping when exusted with the PATIENCE value.
     // 2. Use some algorithm to find the shortest path from current_state to goal_state.

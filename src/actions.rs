@@ -2,6 +2,12 @@ use crate::goap::{Action, ActionEnum, State};
 use crate::item::Item;
 use crate::villager::Villager;
 
+const WORLD_MAX: i64 = 151;
+
+const fn in_bounds((x, y): (i64, i64)) -> bool {
+    x > -1 && x < WORLD_MAX && y > -1 && y < WORLD_MAX
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct VillageState {
     pub(crate) villager: Villager,
@@ -34,30 +40,18 @@ impl ActionEnum<VillageState> for VillagerActionEnum {
             delta_y: { -agent_y },
         }));
 
-        let tree_action = Self::MoveToNearestItem(MoveToNearestItem {
-            target_item_id: "tree".to_string(),
-        });
-        if tree_action.prerequisite(current_state) {
-            available_actions.push(tree_action);
+        for target_item_id in ["tree", "stone", "berry"] {
+            let action = Self::MoveToNearestItem(MoveToNearestItem {
+                target_item_id: target_item_id.to_string(),
+            });
+            if action.prerequisite(current_state) {
+                available_actions.push(action);
+            }
         }
 
-        let stone_action = Self::MoveToNearestItem(MoveToNearestItem {
-            target_item_id: "stone".to_string(),
-        });
-        if stone_action.prerequisite(current_state) {
-            available_actions.push(stone_action);
-        }
-
-        let berry_action = Self::MoveToNearestItem(MoveToNearestItem {
-            target_item_id: "berry".to_string(),
-        });
-        if berry_action.prerequisite(current_state) {
-            available_actions.push(berry_action);
-        }
-
-        for item in current_state.items.clone() {
+        for item in &current_state.items {
             if item.position == (agent_x, agent_y) {
-                if item.id == *"tree" {
+                if item.id == "tree" {
                     let action = ChopTree { item: item.clone() };
                     if action.prerequisite(current_state) {
                         available_actions.push(Self::ChopTree(action));
@@ -80,28 +74,28 @@ impl Action<VillageState> for VillagerActionEnum {
 
     fn act(&self, current_state: VillageState) -> VillageState {
         match self {
-            VillagerActionEnum::MoveToNearestItem(a) => a.act(current_state),
-            VillagerActionEnum::Move(a) => a.act(current_state),
-            VillagerActionEnum::ChopTree(a) => a.act(current_state),
-            VillagerActionEnum::PickUpItem(a) => a.act(current_state),
+            Self::MoveToNearestItem(a) => a.act(current_state),
+            Self::Move(a) => a.act(current_state),
+            Self::ChopTree(a) => a.act(current_state),
+            Self::PickUpItem(a) => a.act(current_state),
         }
     }
 
     fn cost(&self) -> u64 {
         match self {
-            VillagerActionEnum::MoveToNearestItem(a) => a.cost(),
-            VillagerActionEnum::Move(a) => a.cost(),
-            VillagerActionEnum::ChopTree(a) => a.cost(),
-            VillagerActionEnum::PickUpItem(a) => a.cost(),
+            Self::MoveToNearestItem(a) => a.cost(),
+            Self::Move(a) => a.cost(),
+            Self::ChopTree(a) => a.cost(),
+            Self::PickUpItem(a) => a.cost(),
         }
     }
 
     fn prerequisite(&self, current_state: &VillageState) -> bool {
         match self {
-            VillagerActionEnum::MoveToNearestItem(a) => a.prerequisite(current_state),
-            VillagerActionEnum::Move(a) => a.prerequisite(current_state),
-            VillagerActionEnum::ChopTree(a) => a.prerequisite(current_state),
-            VillagerActionEnum::PickUpItem(a) => a.prerequisite(current_state),
+            Self::MoveToNearestItem(a) => a.prerequisite(current_state),
+            Self::Move(a) => a.prerequisite(current_state),
+            Self::ChopTree(a) => a.prerequisite(current_state),
+            Self::PickUpItem(a) => a.prerequisite(current_state),
         }
     }
 }
@@ -118,19 +112,21 @@ impl MoveToNearestItem {
             .items
             .iter()
             .filter_map(|item| (item.id == self.target_item_id).then_some(item.position))
-            .min_by_key(|(ix, iy)| {
-                (((ix - current_x) as f64).powf(2.0) + ((iy - current_y) as f64).powf(2.0)).sqrt()
-                    as u64
+            .min_by_key(|&(item_x, item_y)| {
+                let delta_x = item_x - current_x;
+                let delta_y = item_y - current_y;
+                delta_x * delta_x + delta_y * delta_y
             })
     }
 }
 
 impl Action<VillageState> for MoveToNearestItem {
     fn act(&self, current_state: VillageState) -> VillageState {
-        let mut new_state = current_state.clone();
-        new_state.villager.position = self
-            .get_new_position(&current_state)
-            .expect("If we passed prerequisite there should be something here!");
+        let new_position = self.get_new_position(&current_state);
+        let mut new_state = current_state;
+        if let Some(position) = new_position {
+            new_state.villager.position = position;
+        }
         new_state
     }
 
@@ -140,17 +136,7 @@ impl Action<VillageState> for MoveToNearestItem {
     }
 
     fn prerequisite(&self, current_state: &VillageState) -> bool {
-        // Check that new position is not out of bounds
-        const WORLD_MAX: i64 = 151;
-
-        if let Some(new_position) = self.get_new_position(current_state) {
-            new_position.0 > -1
-                && new_position.0 < WORLD_MAX
-                && new_position.1 > -1
-                && new_position.1 < WORLD_MAX
-        } else {
-            false
-        }
+        self.get_new_position(current_state).is_some_and(in_bounds)
     }
 }
 
@@ -161,7 +147,7 @@ pub(crate) struct Move {
 }
 
 impl Move {
-    fn get_new_position(&self, current_state: &VillageState) -> (i64, i64) {
+    const fn get_new_position(&self, current_state: &VillageState) -> (i64, i64) {
         let (current_x, current_y) = current_state.villager.position;
         (current_x + self.delta_x, current_y + self.delta_y)
     }
@@ -169,25 +155,20 @@ impl Move {
 
 impl Action<VillageState> for Move {
     fn act(&self, current_state: VillageState) -> VillageState {
-        let mut new_state = current_state.clone();
-        new_state.villager.position = self.get_new_position(&current_state);
+        let new_position = self.get_new_position(&current_state);
+        let mut new_state = current_state;
+        new_state.villager.position = new_position;
         new_state
     }
 
     fn cost(&self) -> u64 {
-        let fdelta_x: f64 = self.delta_x as f64;
-        let fdelta_y: f64 = self.delta_y as f64;
-        (fdelta_x.powf(2.0) + fdelta_y.powf(2.0)).sqrt() as u64
+        let delta_x = self.delta_x.unsigned_abs();
+        let delta_y = self.delta_y.unsigned_abs();
+        (delta_x * delta_x + delta_y * delta_y).isqrt()
     }
 
     fn prerequisite(&self, current_state: &VillageState) -> bool {
-        // Check that new position is not out of bounds
-        let new_position = self.get_new_position(current_state);
-        const WORLD_MAX: i64 = 26;
-        new_position.0 > -1
-            && new_position.0 < WORLD_MAX
-            && new_position.1 > -1
-            && new_position.1 < WORLD_MAX
+        in_bounds(self.get_new_position(current_state))
     }
 }
 
@@ -198,7 +179,7 @@ pub(crate) struct PickUpItem {
 
 impl Action<VillageState> for PickUpItem {
     fn act(&self, current_state: VillageState) -> VillageState {
-        let mut new_state = current_state.clone();
+        let mut new_state = current_state;
         new_state.villager.inventory.push(self.item.id.clone());
 
         if let Some(i) = new_state.items.iter().position(|item| item == &self.item) {
@@ -214,7 +195,7 @@ impl Action<VillageState> for PickUpItem {
     }
 
     fn prerequisite(&self, current_state: &VillageState) -> bool {
-        current_state.villager.position == self.item.position && self.item.id != *"tree"
+        current_state.villager.position == self.item.position && self.item.id != "tree"
     }
 }
 
@@ -225,7 +206,7 @@ pub(crate) struct ChopTree {
 
 impl Action<VillageState> for ChopTree {
     fn act(&self, current_state: VillageState) -> VillageState {
-        let mut new_state = current_state.clone();
+        let mut new_state = current_state;
 
         let wood = Item {
             position: self.item.position,

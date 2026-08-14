@@ -10,69 +10,58 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  cargo-fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cargo fmt --check --verbose
-
   docker-build-outbound-dev:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: docker/dev
           tags: outbound-dev:latest
           outputs: type=docker,dest=/tmp/outbound-dev.tar
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: outbound-dev
           path: /tmp/outbound-dev.tar
+
+  cargo-check:
+    needs: docker-build-outbound-dev
+    runs-on: ubuntu-latest
+    name: cargo-${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: fmt
+            command: cargo fmt --all -- --check
+          - name: clippy
+            command: cargo clippy --all-targets --all-features -- --deny warnings
+          - name: test
+            command: cargo test --verbose
+          - name: doc
+            command: cargo doc --no-deps
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: outbound-dev
+          path: /tmp
+      - run: docker load --input /tmp/outbound-dev.tar
+      - uses: actions/checkout@v7
+      - run: docker run --rm -v "$(pwd)":/code -w /code outbound-dev ${{ matrix.command }}
 
   cargo-release-build:
     needs: docker-build-outbound-dev
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: outbound-dev
           path: /tmp
-      - run: |
-          docker load --input /tmp/outbound-dev.tar
-      - uses: actions/checkout@v4
-      - run: |
-          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo build --release --verbose
-      - uses: actions/upload-artifact@v4
+      - run: docker load --input /tmp/outbound-dev.tar
+      - uses: actions/checkout@v7
+      - run: docker run --rm -v "$(pwd)":/code -w /code outbound-dev cargo build --release --verbose
+      - uses: actions/upload-artifact@v7
         with:
           name: outbound-linux-amd64-ubuntu
           path: target/release/outbound
-
-  cargo-clippy:
-    needs: docker-build-outbound-dev
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: outbound-dev
-          path: /tmp
-      - run: |
-          docker load --input /tmp/outbound-dev.tar
-      - uses: actions/checkout@v4
-      - run: |
-          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo clippy --all-targets --verbose -- --deny warnings
-
-  cargo-test:
-    needs: docker-build-outbound-dev
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: outbound-dev
-          path: /tmp
-      - run: |
-          docker load --input /tmp/outbound-dev.tar
-      - uses: actions/checkout@v4
-      - run: |
-          docker run --rm -v $(pwd):/code -w /code outbound-dev cargo test --verbose

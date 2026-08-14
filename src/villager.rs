@@ -2,25 +2,35 @@
 pub(crate) struct Health(Option<u8>);
 
 impl Health {
-    pub(crate) fn new(amount: u8) -> Self {
+    pub(crate) const fn new(amount: u8) -> Self {
         Self(Some(amount))
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "health is modelled ahead of anything that changes it"
+    )]
     pub(crate) fn replenish(&mut self, amount: u8) {
         if let Some(health) = self.0 {
-            self.0 = Some(health.saturating_add(amount).min(100))
+            self.0 = Some(health.saturating_add(amount).min(100));
         }
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn sap(&mut self, amount: u8) {
+    #[expect(
+        dead_code,
+        reason = "health is modelled ahead of anything that changes it"
+    )]
+    pub(crate) const fn sap(&mut self, amount: u8) {
         if let Some(health) = self.0 {
-            self.0 = health.checked_sub(amount)
+            self.0 = health.checked_sub(amount);
         }
     }
 
-    pub(crate) fn check(&self) -> Option<u8> {
+    #[expect(
+        dead_code,
+        reason = "health is modelled ahead of anything that reads it"
+    )]
+    pub(crate) const fn check(&self) -> Option<u8> {
         self.0
     }
 }
@@ -39,7 +49,11 @@ pub(crate) struct Villager {
 }
 
 impl Villager {
-    pub(crate) fn is_alive(&self) -> bool {
+    #[expect(
+        dead_code,
+        reason = "health is modelled ahead of anything that reads it"
+    )]
+    pub(crate) const fn is_alive(&self) -> bool {
         self.health.check().is_some()
     }
 }

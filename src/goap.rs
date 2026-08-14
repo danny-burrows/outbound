@@ -52,19 +52,15 @@ pub(crate) fn plan<S: State, SA: ActionEnum<S>>(
         .max_by_key(|g| g.priority(&current_state))?
         .goal_state(current_state.clone());
 
-    println!("Goal: {:?}", goal_state);
-
     let start = Node {
         state: current_state,
         action: None,
     };
 
-    println!("Start planning...");
     let best_path_option =
         pathfinding::directed::astar::astar(&start, successors, heuristic, |node| {
             success(&node.state, &goal_state)
         });
-    println!("Plan complete!");
 
     if let Some((best_path, _)) = best_path_option {
         let actions = best_path
@@ -95,18 +91,10 @@ fn successors<S: State, SA: ActionEnum<S>>(node: &Node<S, SA>) -> Vec<(Node<S, S
         .collect()
 }
 
-fn heuristic<S: State, SA: ActionEnum<S>>(_: &Node<S, SA>) -> u64 {
+const fn heuristic<S: State, SA: ActionEnum<S>>(_: &Node<S, SA>) -> u64 {
     0
 }
 
 fn success<S: State>(state: &S, goal_state: &S) -> bool {
     state.compare(goal_state)
-}
-
-pub(crate) fn print_plan<S: State, SA: ActionEnum<S>>(plan: Vec<SA>) {
-    for agent_action in plan {
-        println!("---------------------------");
-        println!("Action: {:#?}", agent_action);
-    }
-    println!("---------------------------");
 }

@@ -1,8 +1,67 @@
 [package]
 name = "outbound"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+description = "A goal-oriented action planning sandbox where villagers plan over world state."
+license = "BSD-3-Clause"
+readme = "README.md"
+repository = "https://github.com/danny-burrows/outbound"
+keywords = ["goap", "planning", "gamedev", "raylib", "astar"]
+categories = ["games", "simulation"]
 
 [dependencies]
-pathfinding = "4.12.0"
-raylib = "5.0.2"
+pathfinding = "4.15.0"
+raylib = "6.0.0"
+
+[lints.clippy]
+# priority is set to `-1` to prevent collision with specific lints below
+all = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+correctness = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+# restriction = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+
+# specific lints from "restriction" group
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+dbg_macro = "deny"
+expect_used = "deny"
+float_cmp_const = "deny"
+indexing_slicing = "deny"
+lossy_float_literal = "deny"
+map_err_ignore = "deny"
+panic = "deny"
+panic_in_result_fn = "deny"
+print_stderr = "deny"
+print_stdout = "deny"
+redundant_clone = "deny"
+string_slice = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+
+# usually caused by the resolver and not practical to solve
+multiple_crate_versions = "allow"
+# this is a bad lint; what it really means is that `pub`
+# and `pub(crate)` result the same visibility in the current
+# context. It directly conflicts with `unreachable_pub`
+# which is actually a useful lint that tracks with sensible
+# management of public API surface.
+redundant_pub_crate = "allow"
+
+[lints.rust]
+deprecated = "deny"
+unreachable_pub = "deny"
+unsafe_code = "deny"
+unused_lifetimes = "deny"
+unused_qualifications = "deny"
+
+[lints.rustdoc]
+bare_urls = "deny"
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "deny"

@@ -1,0 +1,6 @@
+# Authoritative toolchain pin: rustup's shim selects this everywhere the
+# repo is the working directory. docker/dev/Dockerfile pre-installs the same
+# version so CI jobs do not download it; bump both together.
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]

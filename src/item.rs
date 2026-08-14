@@ -1,11 +1,11 @@
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Item {
-    pub position: (i64, i64),
-    pub id: String,
+pub(crate) struct Item {
+    pub(crate) position: (i64, i64),
+    pub(crate) id: String,
 }
 
 impl Item {
-    pub fn new(id: String, position: (i64, i64)) -> Item {
-        Item { id, position }
+    pub(crate) const fn new(id: String, position: (i64, i64)) -> Self {
+        Self { position, id }
     }
 }

@@ -21,7 +21,7 @@ use crate::sim::Simulation;
 pub use crate::report::Report;
 
 #[cfg(feature = "render")]
-pub use crate::render::run;
+pub use crate::render::{run, screenshot};
 
 /// Run without a window and report what happened.
 ///

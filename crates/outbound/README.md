@@ -5,11 +5,18 @@ renderer to watch them do it.
 
 ```
 cargo run                                       # windowed
+cargo run -- --villagers 20                     # a bigger village
+cargo run -- --screenshot view.png              # one frame, then exit
 cargo run -- --headless                         # no window, prints a report
 cargo run -- --headless --log-level debug       # ...and why each decision was taken
 cargo run -- --headless --log-level trace       # ...and every action carried out
 cargo run -- --headless --seed 42 --steps 5000  # a different world, reproducibly
 ```
+
+In the window: WASD pans, Q/E rotates, the wheel zooms, R reframes the world. Villagers are
+the bright circles, each with a faint line to wherever it is headed. Resources are shaped as
+well as coloured so they stay apart when zoomed out: triangles are trees, hexagons stone,
+circles berries, and brown bars are felled logs waiting to be gathered.
 
 `main.rs` holds nothing but binary concerns: arguments, logger, printing. The library
 emits its narrative through the `log` facade and returns a `Report` rather than writing to

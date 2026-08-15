@@ -9,6 +9,8 @@ const DEFAULT_SEED: u64 = 0x0000_0B0A_7000_D1CE;
 const DEFAULT_HEADLESS_STEPS: u64 = 100_000;
 /// Enough to be a village and few enough to follow by eye.
 const DEFAULT_VILLAGERS: usize = 8;
+/// Far enough in that villagers are spread out and working, but before the village settles.
+const DEFAULT_WARMUP: u64 = 120;
 
 /// A goal-oriented action planning sandbox where villagers plan over world state.
 #[derive(Parser)]
@@ -29,6 +31,14 @@ struct Cli {
     /// Simulation steps to run headless
     #[arg(long, default_value_t = DEFAULT_HEADLESS_STEPS)]
     steps: u64,
+
+    /// Write one frame to this path and exit, after --warmup steps
+    #[arg(long, value_name = "PATH")]
+    screenshot: Option<String>,
+
+    /// Steps to advance before taking a screenshot
+    #[arg(long, default_value_t = DEFAULT_WARMUP)]
+    warmup: u64,
 
     /// How much of each decision to report: info names the goal chosen, debug adds the
     /// goals it weighed against, trace adds every action carried out
@@ -58,7 +68,11 @@ fn main() {
     }
 
     #[cfg(feature = "render")]
-    outbound::run(cli.seed, cli.villagers);
+    if let Some(path) = cli.screenshot.as_deref() {
+        outbound::screenshot(cli.seed, cli.villagers, cli.warmup, path);
+    } else {
+        outbound::run(cli.seed, cli.villagers);
+    }
 
     #[cfg(not(feature = "render"))]
     {

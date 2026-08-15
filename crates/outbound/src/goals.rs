@@ -1,7 +1,7 @@
-use crate::goap::Goal;
 use crate::item::{GATHER_COST, Good};
 use crate::village::{PlanState, Village};
 use crate::world::World;
+use goap::Goal;
 
 /// Carry `target` units of a good.
 ///

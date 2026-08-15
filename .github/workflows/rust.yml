@@ -36,11 +36,15 @@ jobs:
           - name: fmt
             command: cargo fmt --all -- --check
           - name: clippy
-            command: cargo clippy --all-targets --all-features -- --deny warnings
+            command: cargo clippy --workspace --all-targets --all-features -- --deny warnings
           - name: test
-            command: cargo test --verbose
+            command: cargo test --workspace --verbose
+          # Guards the render feature gating: the simulation must still build and pass
+          # without raylib, which is what makes headless runs cheap to iterate on.
+          - name: test-headless
+            command: cargo test -p outbound --no-default-features --verbose
           - name: doc
-            command: cargo doc --no-deps
+            command: cargo doc --workspace --no-deps
     steps:
       - uses: actions/download-artifact@v8
         with:

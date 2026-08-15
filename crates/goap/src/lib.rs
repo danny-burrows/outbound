@@ -1,4 +1,4 @@
-//! Domain-agnostic goal-oriented action planning.
+//! Goal-oriented action planning over a caller-defined domain.
 //!
 //! A [`Domain`] bundles the three things the planner keeps deliberately apart:
 //!
@@ -13,25 +13,30 @@
 //! Goals are *partial*. A [`Goal`] reports how far off it is rather than describing a
 //! finished world, which is what makes [`Goal::estimate`] — and therefore an
 //! informative A* heuristic — expressible at all.
+//!
+//! [`plan`] always returns a [`Plan`], carrying every goal it weighed in
+//! [`Plan::considered`] whether or not it found anything to do. Failing to plan is
+//! information, not absence, and it is exactly when you most want to know why.
+
+#[cfg(test)]
+mod tests;
 
 use pathfinding::directed::astar::astar;
 use std::collections::VecDeque;
 
 /// Requirements a planning state must meet. Blanket-implemented; the bound exists to
 /// keep signatures readable.
-pub(crate) trait State: Clone + Eq + std::hash::Hash + std::fmt::Debug {}
+pub trait State: Clone + Eq + std::hash::Hash + std::fmt::Debug {}
 
 impl<T: Clone + Eq + std::hash::Hash + std::fmt::Debug> State for T {}
 
-pub(crate) trait Domain: Sized {
+pub trait Domain: Sized {
     type State: State;
     type Context;
     type Action: Action<Self>;
 }
 
-pub(crate) trait Action<D: Domain>:
-    std::fmt::Debug + Clone + Eq + std::hash::Hash + Sized
-{
+pub trait Action<D: Domain>: std::fmt::Debug + Clone + Eq + std::hash::Hash + Sized {
     fn cost(&self, state: &D::State, context: &D::Context) -> u64;
 
     fn prerequisite(&self, state: &D::State, context: &D::Context) -> bool;
@@ -44,7 +49,7 @@ pub(crate) trait Action<D: Domain>:
     fn available(state: &D::State, context: &D::Context, out: &mut Vec<Self>);
 }
 
-pub(crate) trait Goal<D: Domain> {
+pub trait Goal<D: Domain> {
     fn name(&self) -> &'static str;
 
     /// How badly the agent wants this right now. Highest is planned first.
@@ -58,7 +63,8 @@ pub(crate) trait Goal<D: Domain> {
     /// is the cheapest.
     ///
     /// The default assumes each outstanding condition needs at least one unit-cost
-    /// action. Domains that know what their actions charge should say so.
+    /// action. Domains that know what their actions charge should say so: an estimate
+    /// that ignores the dominant cost is admissible and nearly useless.
     fn estimate(&self, state: &D::State, context: &D::Context) -> u64 {
         u64::from(self.unmet(state, context))
     }
@@ -68,14 +74,18 @@ pub(crate) trait Goal<D: Domain> {
     }
 }
 
-pub(crate) struct PlannerConfig {
+pub struct PlannerConfig {
     /// Multiplier on [`Goal::estimate`]. `0` discards the heuristic and degrades to
     /// uniform-cost search, `1` is admissible A*, above that is weighted A*: fewer
     /// expansions in exchange for plans up to that factor from optimal.
-    pub(crate) heuristic_weight: u64,
+    pub heuristic_weight: u64,
     /// Expansions allowed per goal before the search gives up and the next goal is
     /// tried. Bounds the worst case so one unreachable goal cannot stall a frame.
-    pub(crate) max_expansions: usize,
+    ///
+    /// A soft bound: once it trips, the frontier still has queued nodes to pop, and
+    /// [`Plan::expansions`] counts those too. They generate no successors, so the
+    /// overshoot is bounded by the frontier's size and costs next to nothing.
+    pub max_expansions: usize,
 }
 
 impl Default for PlannerConfig {
@@ -87,50 +97,121 @@ impl Default for PlannerConfig {
     }
 }
 
+/// What became of one goal during a call to [`plan`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Consideration {
+    /// Nothing outstanding, so it was never planned for.
+    Satisfied,
+    /// Planned for, and its plan is the one returned.
+    Chosen,
+    /// Planned for, but no plan exists inside [`PlannerConfig::max_expansions`].
+    Unreachable,
+    /// A goal it outranked, or that outranked it, was served first.
+    NotTried,
+}
+
+/// One goal as the planner weighed it. Answers "why did this agent do that?" after the
+/// fact, which is the only way to debug a decision made from a dozen competing numbers.
+#[derive(Debug, Clone, Copy)]
+pub struct Candidate {
+    pub goal: &'static str,
+    pub utility: i64,
+    pub unmet: u32,
+    pub outcome: Consideration,
+}
+
 #[derive(Debug)]
-pub(crate) struct Plan<A> {
-    pub(crate) goal: &'static str,
-    pub(crate) actions: VecDeque<A>,
-    pub(crate) cost: u64,
+pub struct Plan<A> {
+    /// The goal being served, or `None` when nothing could be planned.
+    pub goal: Option<&'static str>,
+    pub actions: VecDeque<A>,
+    pub cost: u64,
     /// Nodes expanded across every goal attempted. The number to watch when tuning a
     /// heuristic.
-    pub(crate) expansions: usize,
+    pub expansions: usize,
+    pub considered: Vec<Candidate>,
+}
+
+impl<A> Plan<A> {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.actions.is_empty()
+    }
 }
 
 /// Plan for the most-wanted goal that is actually reachable.
 ///
 /// Goals are tried in descending utility and the first that yields a plan wins, so a
-/// goal nothing can currently satisfy costs a bounded search rather than an idle
-/// agent.
-pub(crate) fn plan<D: Domain>(
+/// goal nothing can currently satisfy costs a bounded search rather than an idle agent.
+#[must_use]
+pub fn plan<D: Domain>(
     state: &D::State,
     context: &D::Context,
     goals: &[Box<dyn Goal<D>>],
     config: &PlannerConfig,
-) -> Option<Plan<D::Action>> {
-    let mut ranked: Vec<&dyn Goal<D>> = goals
+) -> Plan<D::Action> {
+    let mut considered: Vec<Candidate> = goals
         .iter()
-        .map(AsRef::as_ref)
-        .filter(|goal| !goal.is_satisfied(state, context))
+        .map(|goal| {
+            let unmet = goal.unmet(state, context);
+            Candidate {
+                goal: goal.name(),
+                utility: goal.utility(state, context),
+                unmet,
+                outcome: if unmet == 0 {
+                    Consideration::Satisfied
+                } else {
+                    Consideration::NotTried
+                },
+            }
+        })
         .collect();
 
     // Stable, so equal utilities break toward declaration order instead of whichever
     // way the sort happens to fall.
-    ranked.sort_by_key(|goal| std::cmp::Reverse(goal.utility(state, context)));
+    let mut order: Vec<usize> = considered
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| candidate.outcome != Consideration::Satisfied)
+        .map(|(index, _)| index)
+        .collect();
+    order.sort_by_key(|&index| {
+        std::cmp::Reverse(considered.get(index).map_or(i64::MIN, |c| c.utility))
+    });
 
     let mut expansions = 0;
-    for goal in ranked {
-        if let Some((path, cost)) = search::<D>(state, context, goal, config, &mut expansions) {
-            return Some(Plan {
-                goal: goal.name(),
+    for index in order {
+        let Some(goal) = goals.get(index) else {
+            continue;
+        };
+
+        if let Some((path, cost)) =
+            search::<D>(state, context, goal.as_ref(), config, &mut expansions)
+        {
+            if let Some(candidate) = considered.get_mut(index) {
+                candidate.outcome = Consideration::Chosen;
+            }
+            return Plan {
+                goal: Some(goal.name()),
                 actions: recover_actions::<D>(&path, context),
                 cost,
                 expansions,
-            });
+                considered,
+            };
+        }
+
+        if let Some(candidate) = considered.get_mut(index) {
+            candidate.outcome = Consideration::Unreachable;
         }
     }
 
-    None
+    Plan {
+        goal: None,
+        actions: VecDeque::new(),
+        cost: 0,
+        expansions,
+        considered,
+    }
 }
 
 fn search<D: Domain>(

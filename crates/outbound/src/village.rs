@@ -1,7 +1,7 @@
 use crate::actions::VillagerAction;
-use crate::goap::Domain;
 use crate::item::{Good, Resource};
 use crate::world::World;
+use goap::Domain;
 
 /// Marker tying the village's state, context and actions together.
 pub(crate) struct Village;

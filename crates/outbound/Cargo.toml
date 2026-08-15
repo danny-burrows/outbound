@@ -1,0 +1,27 @@
+[package]
+name = "outbound"
+description = "A goal-oriented action planning sandbox where villagers plan over world state."
+keywords = ["goap", "planning", "gamedev", "raylib", "simulation"]
+categories = ["games", "simulation"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[features]
+default = ["render"]
+# Windowed rendering. Off, the simulation still runs headless and the build needs
+# neither cmake nor any system graphics library.
+render = ["dep:raylib"]
+
+[dependencies]
+clap = { workspace = true }
+env_logger = { workspace = true }
+goap = { workspace = true }
+log = { workspace = true }
+pathfinding = { workspace = true }
+raylib = { workspace = true, optional = true }
+
+[lints]
+workspace = true

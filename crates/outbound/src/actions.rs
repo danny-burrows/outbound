@@ -1,7 +1,7 @@
-use crate::goap::Action;
 use crate::item::{GATHER_COST, Good, Resource};
 use crate::village::{PlanState, Village};
 use crate::world::World;
+use goap::Action;
 
 /// Three operators cover the domain now that item identities live in [`World`].
 ///

@@ -145,6 +145,9 @@ impl World {
         true
     }
 
+    /// Every item in the world. Only drawing wants the lot in one pass; the planner asks
+    /// per resource, which is why they are stored grouped.
+    #[cfg(feature = "render")]
     pub(crate) fn items(&self) -> impl Iterator<Item = Item> {
         Resource::ALL.into_iter().flat_map(move |resource| {
             self.positions

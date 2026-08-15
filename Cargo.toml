@@ -1,19 +1,23 @@
-[package]
-name = "outbound"
+[workspace]
+resolver = "3"
+members = ["crates/goap", "crates/outbound"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
-description = "A goal-oriented action planning sandbox where villagers plan over world state."
 license = "BSD-3-Clause"
 readme = "README.md"
 repository = "https://github.com/danny-burrows/outbound"
-keywords = ["goap", "planning", "gamedev", "raylib", "astar"]
-categories = ["games", "simulation"]
 
-[dependencies]
+[workspace.dependencies]
+clap = { version = "4.6.6", features = ["derive"] }
+env_logger = "0.11.11"
+goap = { path = "crates/goap" }
+log = "0.4.33"
 pathfinding = "4.15.0"
 raylib = "6.0.0"
 
-[lints.clippy]
+[workspace.lints.clippy]
 # priority is set to `-1` to prevent collision with specific lints below
 all = { level = "deny", priority = -1 }
 cargo = { level = "deny", priority = -1 }
@@ -54,14 +58,14 @@ multiple_crate_versions = "allow"
 # management of public API surface.
 redundant_pub_crate = "allow"
 
-[lints.rust]
+[workspace.lints.rust]
 deprecated = "deny"
 unreachable_pub = "deny"
 unsafe_code = "deny"
 unused_lifetimes = "deny"
 unused_qualifications = "deny"
 
-[lints.rustdoc]
+[workspace.lints.rustdoc]
 bare_urls = "deny"
 broken_intra_doc_links = "deny"
 private_intra_doc_links = "deny"

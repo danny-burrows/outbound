@@ -1,0 +1,16 @@
+[package]
+name = "goap"
+description = "Goal-oriented action planning over a caller-defined domain."
+keywords = ["goap", "planning", "gamedev", "astar"]
+categories = ["game-development", "algorithms"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[dependencies]
+pathfinding = { workspace = true }
+
+[lints]
+workspace = true

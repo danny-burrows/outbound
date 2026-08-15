@@ -1,11 +1,11 @@
 use crate::item::{Item, Resource};
-use crate::villager::Villager;
 
-/// Everything the simulation knows.
+/// Everything the villagers share.
 ///
-/// The planner borrows this as its [`crate::goap::Domain::Context`] and never clones
-/// it. Only [`crate::village::PlanState`] is copied per search node, which is why the
-/// item positions live here instead of in the state.
+/// Only the environment: nothing about any individual lives here, which is what lets a
+/// whole village be stepped against one mutable world. The planner borrows this as its
+/// `Context` and never clones it — only [`crate::village::PlanState`] is copied per search
+/// node, which is why item positions live here instead of in the state.
 pub(crate) struct World {
     /// Positions grouped by kind, so a lookup scans only the resource it cares about
     /// rather than every item in the world.
@@ -15,14 +15,6 @@ pub(crate) struct World {
     spacing: [u64; Resource::COUNT],
     /// Felled logs waiting to be gathered.
     pub(crate) logs: Vec<(i64, i64)>,
-    #[expect(
-        dead_code,
-        reason = "the villager's health is modelled ahead of anything that reads it"
-    )]
-    pub(crate) villager: Villager,
-    /// Where the villager is drawn. Trails [`crate::village::PlanState::position`]
-    /// while a walk plays out, and catches up before the next action runs.
-    pub(crate) render_position: (i64, i64),
 }
 
 impl World {
@@ -47,8 +39,6 @@ impl World {
             positions,
             spacing,
             logs: Vec::new(),
-            villager: Villager::default(),
-            render_position: (0, 0),
         }
     }
 
@@ -118,6 +108,14 @@ impl World {
         // Sum of the arithmetic run first..=last.
         let sum = first.saturating_add(last).saturating_mul(trips) / 2;
         spacing.saturating_mul(sum)
+    }
+
+    pub(crate) fn resource_at(&self, position: (i64, i64)) -> Option<Resource> {
+        Resource::ALL.into_iter().find(|resource| {
+            self.positions
+                .get(resource.index())
+                .is_some_and(|bucket| bucket.contains(&position))
+        })
     }
 
     /// Remove a worked instance for real. Executed against the world, never during a

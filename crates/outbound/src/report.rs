@@ -7,47 +7,65 @@
 pub struct Report {
     pub seed: u64,
     pub steps: u64,
-    pub wood: u8,
-    pub stone: u8,
-    pub berries: u8,
+    pub villagers: usize,
+    /// Villagers with nothing planned: every desire either met or out of reach.
+    pub idle_villagers: usize,
+    /// Carried between the whole village.
+    pub wood: u64,
+    pub stone: u64,
+    pub berries: u64,
     pub plans: u64,
     /// Plans that came back with nothing to do.
     pub empty_plans: u64,
     pub expansions: u64,
     pub peak_expansions: usize,
+    /// Planned actions that could not be carried out, almost always because another
+    /// villager got there first.
     pub refinement_failures: u64,
     pub trees_left: u64,
     pub stone_left: u64,
     pub berries_left: u64,
+    /// Logs felled and then walked away from. Stranded: the planner only knows about logs
+    /// under the villager who felled them.
+    pub logs_stranded: usize,
 }
 
 impl std::fmt::Display for Report {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
-            "outbound headless | seed {} | {} steps",
-            self.seed, self.steps
+            "outbound headless | seed {} | {} villagers | {} steps",
+            self.seed, self.villagers, self.steps
         )?;
         writeln!(
             f,
-            "  carrying:   {} wood, {} stone, {} berries",
+            "  village carries: {} wood, {} stone, {} berries",
             self.wood, self.stone, self.berries
         )?;
         writeln!(
             f,
-            "  world left: {} trees, {} stone, {} berries",
-            self.trees_left, self.stone_left, self.berries_left
+            "  world left:      {} trees, {} stone, {} berries ({} logs stranded)",
+            self.trees_left, self.stone_left, self.berries_left, self.logs_stranded
         )?;
         writeln!(
             f,
-            "  plans:      {} ({} with nothing to do)",
+            "  idle villagers:  {} of {}",
+            self.idle_villagers, self.villagers
+        )?;
+        writeln!(
+            f,
+            "  plans:           {} ({} with nothing to do)",
             self.plans, self.empty_plans
         )?;
         writeln!(
             f,
-            "  expansions: {} total, {} peak",
+            "  expansions:      {} total, {} peak",
             self.expansions, self.peak_expansions
         )?;
-        write!(f, "  refinements failed: {}", self.refinement_failures)
+        write!(
+            f,
+            "  contested:       {} refinements failed",
+            self.refinement_failures
+        )
     }
 }

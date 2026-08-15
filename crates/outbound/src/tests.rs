@@ -242,72 +242,142 @@ fn an_unreachable_goal_falls_through_to_the_next() {
     assert_eq!(wood.outcome, Consideration::Unreachable);
 }
 
-/// The riskiest seam in splitting planning state from world state: the planner's `act`
-/// and the simulation's real world changes are separate code, and nothing but a test
-/// stops them drifting apart.
+/// Runs a village to a standstill, or gives up. Returns whether it settled, so a test can
+/// say so rather than silently asserting against a half-finished run.
+fn run_until_settled(simulation: &mut Simulation, limit: u64) -> bool {
+    for _ in 0..limit {
+        simulation.advance();
+        if simulation.idle_villagers() == simulation.villagers.len() {
+            return true;
+        }
+    }
+    false
+}
+
+/// Every tree felled becomes exactly one log, and every log gathered becomes exactly one
+/// wood. So trees lost must equal wood carried plus logs still lying about — whoever felled
+/// what.
+///
+/// This is the invariant that matters with a village rather than a soloist: the planner's
+/// `act` and the villager's real world changes are separate code, and eight villagers
+/// mutating one world is where they would drift apart.
+fn assert_wood_is_conserved(simulation: &Simulation, trees_before: u64) {
+    let felled = trees_before - simulation.world.count(Resource::Tree);
+    let carried = simulation.carried(Good::Wood);
+    let stranded = u64::try_from(simulation.world.logs.len()).unwrap_or(u64::MAX);
+
+    assert_eq!(
+        felled,
+        carried + stranded,
+        "{felled} trees felled but {carried} wood carried and {stranded} logs stranded"
+    );
+}
+
 #[test]
-fn the_simulation_carries_out_what_the_planner_intended() {
-    let mut simulation = Simulation::new(SEED);
+fn one_villager_carries_out_what_the_planner_intended() {
+    let mut simulation = Simulation::new(SEED, 1);
     let trees = simulation.world.count(Resource::Tree);
 
-    for _ in 0..200_000 {
-        if simulation.state.carrying.count(Good::Wood) >= 10 {
-            break;
-        }
-        simulation.advance();
-    }
+    assert!(
+        run_until_settled(&mut simulation, 200_000),
+        "one villager never settled"
+    );
+    assert_wood_is_conserved(&simulation, trees);
 
     assert_eq!(
-        simulation.state.carrying.count(Good::Wood),
-        10,
-        "executing the plans did not fill the pack"
-    );
-    assert_eq!(
-        simulation.world.count(Resource::Tree),
-        trees - 10,
-        "the world did not lose exactly the trees the villager felled"
+        simulation.stats.refinement_failures, 0,
+        "nobody to be beaten to a tree, so nothing should have failed"
     );
     assert!(
         simulation.world.logs.is_empty(),
-        "logs were felled and never gathered: {:?}",
+        "a lone villager abandoned logs: {:?}",
         simulation.world.logs
     );
+
+    let Some(villager) = simulation.villagers.first() else {
+        return;
+    };
     assert_eq!(
-        simulation.stats.refinement_failures, 0,
-        "an abstract action could not be carried out against the real world"
-    );
-    assert_eq!(
-        simulation.world.render_position, simulation.state.position,
+        villager.render_position, villager.state.position,
         "the drawn position never caught up with the planner's"
     );
 }
 
-/// Every goal is reachable in a default world, so a long enough run must finish them all
-/// and then settle, exercising the idle path rather than replanning every step.
+/// The point of the exercise: a village of villagers who each want different things all
+/// reach a standstill, without conjuring or destroying anything on the way.
 #[test]
-fn a_long_run_satisfies_every_goal_and_settles() {
-    let mut simulation = Simulation::new(SEED);
-    for _ in 0..100_000 {
+fn a_village_settles_without_losing_track_of_anything() {
+    let mut simulation = Simulation::new(SEED, 8);
+    let trees = simulation.world.count(Resource::Tree);
+
+    assert!(
+        run_until_settled(&mut simulation, 400_000),
+        "{} of 8 villagers were still busy",
+        8 - simulation.idle_villagers()
+    );
+    assert_wood_is_conserved(&simulation, trees);
+    assert!(
+        simulation.stats.empty_plans > 0,
+        "no villager ever ran out of things to want"
+    );
+}
+
+/// A villager beaten to a tree must not spend the rest of the run attempting the same
+/// impossible action. Nothing changes in a settled world, so its failure count cannot move.
+#[test]
+fn contention_does_not_become_an_endless_retry() {
+    let mut simulation = Simulation::new(SEED, 8);
+    assert!(
+        run_until_settled(&mut simulation, 400_000),
+        "the village never settled"
+    );
+
+    let settled = simulation.stats.refinement_failures;
+    for _ in 0..50_000 {
         simulation.advance();
     }
 
-    let carrying = simulation.state.carrying;
-    assert_eq!(carrying.count(Good::Wood), 10, "wood");
-    assert_eq!(carrying.count(Good::Stone), 10, "stone");
-    assert_eq!(carrying.count(Good::Berry), 10, "berries");
-    assert!(
-        simulation.stats.empty_plans > 0,
-        "the villager never ran out of things to want"
+    assert_eq!(
+        simulation.stats.refinement_failures, settled,
+        "a settled village went on failing refinements"
     );
-    assert_eq!(simulation.stats.refinement_failures, 0);
+}
+
+/// Villagers are born apart and wanting different things, or a village is just one villager
+/// copied eight times — and they would all walk to the same tree.
+#[test]
+fn villagers_are_born_different() {
+    let simulation = Simulation::new(SEED, 8);
+
+    let positions: std::collections::HashSet<_> = simulation
+        .villagers
+        .iter()
+        .map(|villager| villager.state.position)
+        .collect();
+    assert!(
+        positions.len() > 1,
+        "every villager spawned on the same spot"
+    );
+
+    let mut settled = Simulation::new(SEED, 8);
+    run_until_settled(&mut settled, 400_000);
+    let packs: std::collections::HashSet<_> = settled
+        .villagers
+        .iter()
+        .map(|villager| villager.state.carrying)
+        .collect();
+    assert!(
+        packs.len() > 1,
+        "every villager ended up carrying exactly the same things"
+    );
 }
 
 /// Seeded generation is what makes a headless run something you can diff.
 #[test]
 fn a_seed_reproduces_a_run() {
-    let mut first = Simulation::new(SEED);
-    let mut second = Simulation::new(SEED);
-    let mut different = Simulation::new(SEED ^ 1);
+    let mut first = Simulation::new(SEED, 4);
+    let mut second = Simulation::new(SEED, 4);
+    let mut different = Simulation::new(SEED ^ 1, 4);
 
     for _ in 0..3_000 {
         first.advance();
@@ -315,32 +385,59 @@ fn a_seed_reproduces_a_run() {
         different.advance();
     }
 
-    assert_eq!(first.state, second.state, "same seed diverged");
-    assert_eq!(first.world.render_position, second.world.render_position);
+    let states = |simulation: &Simulation| -> Vec<_> {
+        simulation
+            .villagers
+            .iter()
+            .map(|villager| (villager.state, villager.render_position))
+            .collect()
+    };
+
+    assert_eq!(states(&first), states(&second), "same seed diverged");
     assert_eq!(first.stats.expansions, second.stats.expansions);
     assert_ne!(
-        different.world.render_position, first.world.render_position,
-        "different seeds produced the same world"
+        states(&different),
+        states(&first),
+        "different seeds produced the same village"
     );
+}
+
+/// The world is built before anyone is spawned into it, so population must not disturb it.
+#[test]
+fn population_does_not_change_the_world() {
+    let lone = Simulation::new(SEED, 1);
+    let crowd = Simulation::new(SEED, 12);
+
+    for resource in Resource::ALL {
+        assert_eq!(
+            lone.world.count(resource),
+            crowd.world.count(resource),
+            "{resource:?} differed with population"
+        );
+    }
 }
 
 /// The library hands back numbers rather than printing them, which makes a whole headless
 /// run assertable in one line — and reproducible enough to compare two runs directly.
 #[test]
 fn a_headless_run_reports_what_happened() {
-    let report = crate::run_headless(SEED, 20_000);
+    let report = crate::run_headless(SEED, 8, 60_000);
 
     assert_eq!(report.seed, SEED);
-    assert_eq!(report.steps, 20_000);
-    assert_eq!((report.wood, report.stone, report.berries), (10, 10, 10));
-    assert_eq!(report.refinement_failures, 0);
+    assert_eq!(report.steps, 60_000);
+    assert_eq!(report.villagers, 8);
+    assert_eq!(report.idle_villagers, 8, "the village never settled");
+    assert!(
+        report.wood + report.stone + report.berries > 0,
+        "the village gathered nothing at all"
+    );
     assert!(
         report.empty_plans > 0,
-        "the villager never ran out of things to want"
+        "no villager ever ran out of things to want"
     );
     assert_eq!(
         report,
-        crate::run_headless(SEED, 20_000),
+        crate::run_headless(SEED, 8, 60_000),
         "the same seed produced a different report"
     );
 }

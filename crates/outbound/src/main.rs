@@ -7,6 +7,8 @@ use log::LevelFilter;
 /// Reproducible by default, so a run can be described by its flags alone.
 const DEFAULT_SEED: u64 = 0x0000_0B0A_7000_D1CE;
 const DEFAULT_HEADLESS_STEPS: u64 = 100_000;
+/// Enough to be a village and few enough to follow by eye.
+const DEFAULT_VILLAGERS: usize = 8;
 
 /// A goal-oriented action planning sandbox where villagers plan over world state.
 #[derive(Parser)]
@@ -16,9 +18,13 @@ struct Cli {
     #[arg(long)]
     headless: bool,
 
-    /// World seed. The same seed rebuilds the same world, windowed or headless
+    /// World seed. The same seed rebuilds the same world, whatever the population
     #[arg(long, default_value_t = DEFAULT_SEED)]
     seed: u64,
+
+    /// How many villagers to spawn, each born wanting different things
+    #[arg(long, default_value_t = DEFAULT_VILLAGERS)]
+    villagers: usize,
 
     /// Simulation steps to run headless
     #[arg(long, default_value_t = DEFAULT_HEADLESS_STEPS)]
@@ -44,16 +50,22 @@ fn main() {
         .init();
 
     if cli.headless {
-        println!("{}", outbound::run_headless(cli.seed, cli.steps));
+        println!(
+            "{}",
+            outbound::run_headless(cli.seed, cli.villagers, cli.steps)
+        );
         return;
     }
 
     #[cfg(feature = "render")]
-    outbound::run(cli.seed);
+    outbound::run(cli.seed, cli.villagers);
 
     #[cfg(not(feature = "render"))]
     {
         log::warn!("built without the `render` feature; running headless instead");
-        println!("{}", outbound::run_headless(cli.seed, cli.steps));
+        println!(
+            "{}",
+            outbound::run_headless(cli.seed, cli.villagers, cli.steps)
+        );
     }
 }

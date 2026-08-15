@@ -1,7 +1,7 @@
 use crate::item::{Good, Resource};
 use crate::rng::Rng;
 use crate::sim::Simulation;
-use crate::village::PlanState;
+use crate::villager::Villager;
 use crate::world::World;
 use raylib::consts::KeyboardKey::{KEY_A, KEY_LEFT, KEY_R, KEY_RIGHT, KEY_S};
 use raylib::prelude::*;
@@ -86,13 +86,31 @@ const fn resource_color(resource: Resource) -> Color {
     }
 }
 
+/// Villagers are told apart by colour, which is the cheapest way to watch one of them make
+/// a decision you did not expect.
+const VILLAGER_COLORS: [Color; 6] = [
+    Color::BLUE,
+    Color::DARKBLUE,
+    Color::SKYBLUE,
+    Color::VIOLET,
+    Color::DARKPURPLE,
+    Color::MAROON,
+];
+
+fn villager_color(id: usize) -> Color {
+    VILLAGER_COLORS
+        .get(id % VILLAGER_COLORS.len())
+        .copied()
+        .unwrap_or(Color::BLUE)
+}
+
 fn draw_world<D: RaylibDraw>(
     d: &mut D,
     world: &World,
+    villagers: &[Villager],
     buildings: &[Building],
     building_site: Rectangle,
     player: Rectangle,
-    villager_rect: Rectangle,
 ) {
     d.draw_rectangle(-6000, 320, 13000, 8000, Color::DARKGRAY);
     d.draw_rectangle_lines_ex(building_site, 1.0, Color::LIMEGREEN);
@@ -100,9 +118,6 @@ fn draw_world<D: RaylibDraw>(
     for building in buildings {
         d.draw_rectangle_rec(building.rect, building.color);
     }
-
-    let (villager_x, villager_y) = to_screen(world.render_position);
-    d.draw_circle(villager_x, villager_y, 3.0, Color::BLUE);
 
     for item in world.items() {
         let (x, y) = to_screen(item.position);
@@ -114,7 +129,11 @@ fn draw_world<D: RaylibDraw>(
         d.draw_circle(x, y, 2.0, Color::BROWN);
     }
 
-    d.draw_rectangle_rec(villager_rect, Color::BLUE);
+    for villager in villagers {
+        let (x, y) = to_screen(villager.render_position);
+        d.draw_circle(x, y, 3.0, villager_color(villager.id));
+    }
+
     d.draw_rectangle_rec(player, Color::RED);
 }
 
@@ -139,7 +158,7 @@ fn draw_camera_axes<D: RaylibDraw>(d: &mut D, camera: &Camera2D) {
     );
 }
 
-fn draw_hud<D: RaylibDraw>(d: &mut D, state: &PlanState, goal: Option<&str>) {
+fn draw_hud<D: RaylibDraw>(d: &mut D, simulation: &Simulation) {
     d.draw_text("SCREEN AREA", 640, 10, 20, Color::RED);
 
     d.draw_rectangle(0, 0, SCREEN_WIDTH, 5, Color::RED);
@@ -162,30 +181,33 @@ fn draw_hud<D: RaylibDraw>(d: &mut D, state: &PlanState, goal: Option<&str>) {
         Color::DARKGRAY,
     );
 
-    let pursuing = format!("pursuing: {}", goal.unwrap_or("nothing"));
-    d.draw_text(&pursuing, 20, 120, 10, Color::BLACK);
+    let village = format!(
+        "villagers: {} ({} idle)",
+        simulation.villagers.len(),
+        simulation.idle_villagers(),
+    );
+    d.draw_text(&village, 20, 120, 10, Color::BLACK);
 
     let carrying = format!(
-        "carrying: {} wood  {} stone  {} berries",
-        state.carrying.count(Good::Wood),
-        state.carrying.count(Good::Stone),
-        state.carrying.count(Good::Berry),
+        "village carries: {} wood  {} stone  {} berries",
+        simulation.carried(Good::Wood),
+        simulation.carried(Good::Stone),
+        simulation.carried(Good::Berry),
     );
     d.draw_text(&carrying, 20, 136, 10, Color::BLACK);
 }
 
-pub fn run(seed: u64) {
+pub fn run(seed: u64, population: usize) {
     let (mut rl, thread) = init()
         .size(SCREEN_WIDTH, SCREEN_HEIGHT)
         .title("Outbound")
         .build();
     rl.set_target_fps(60);
 
-    let mut simulation = Simulation::new(seed);
+    let mut simulation = Simulation::new(seed, population);
     let buildings = spawn_skyline(&mut Rng::new(seed ^ SKYLINE_SALT));
 
     let building_site = Rectangle::new(30.0, 20.0, 25.0, 25.0);
-    let villager_rect = Rectangle::new(10.0, 25.0, 10.0, 10.0);
     let mut player = Rectangle::new(400.0, 280.0, 40.0, 40.0);
     let mut frame: u32 = 0;
 
@@ -213,13 +235,13 @@ pub fn run(seed: u64) {
             draw_world(
                 &mut d2,
                 &simulation.world,
+                &simulation.villagers,
                 &buildings,
                 building_site,
                 player,
-                villager_rect,
             );
             draw_camera_axes(&mut d2, &camera);
         }
-        draw_hud(&mut d, &simulation.state, simulation.current_goal);
+        draw_hud(&mut d, &simulation);
     }
 }

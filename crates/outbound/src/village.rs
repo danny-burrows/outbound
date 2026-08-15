@@ -47,6 +47,14 @@ pub(crate) struct PlanState {
 }
 
 impl PlanState {
+    /// Standing somewhere, carrying nothing.
+    pub(crate) fn at(position: (i64, i64)) -> Self {
+        Self {
+            position,
+            ..Self::default()
+        }
+    }
+
     pub(crate) fn taken(&self, resource: Resource) -> u16 {
         self.taken.get(resource.index()).copied().unwrap_or(0)
     }

@@ -27,24 +27,24 @@ pub use crate::render::run;
 ///
 /// This is the mode that makes the simulation testable: no renderer, no frame pacing,
 /// reproducible from `seed`, and fast enough to run further than anyone would sit and
-/// watch. The narrative of each decision goes to the `log` facade; install a logger to
-/// see it.
+/// watch. The narrative of each decision goes to the `log` facade; install a logger to see
+/// it.
 #[must_use]
-pub fn run_headless(seed: u64, steps: u64) -> Report {
-    let mut simulation = Simulation::new(seed);
+pub fn run_headless(seed: u64, population: usize, steps: u64) -> Report {
+    let mut simulation = Simulation::new(seed, population);
     for _ in 0..steps {
         simulation.advance();
     }
 
-    let carrying = simulation.state.carrying;
     let stats = simulation.stats;
-
     Report {
         seed,
         steps: simulation.steps(),
-        wood: carrying.count(Good::Wood),
-        stone: carrying.count(Good::Stone),
-        berries: carrying.count(Good::Berry),
+        villagers: simulation.villagers.len(),
+        idle_villagers: simulation.idle_villagers(),
+        wood: simulation.carried(Good::Wood),
+        stone: simulation.carried(Good::Stone),
+        berries: simulation.carried(Good::Berry),
         plans: stats.plans,
         empty_plans: stats.empty_plans,
         expansions: stats.expansions,
@@ -53,5 +53,6 @@ pub fn run_headless(seed: u64, steps: u64) -> Report {
         trees_left: simulation.world.count(Resource::Tree),
         stone_left: simulation.world.count(Resource::Stone),
         berries_left: simulation.world.count(Resource::Berry),
+        logs_stranded: simulation.world.logs.len(),
     }
 }

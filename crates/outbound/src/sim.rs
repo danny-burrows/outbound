@@ -7,9 +7,8 @@ use goap::PlannerConfig;
 
 pub(crate) const WORLD_EXTENT: i64 = 150;
 
-/// Stocked for a village rather than a single villager: eight people each wanting up to a
-/// dozen of each good will exhaust a sparse world and spend the rest of the run finding
-/// their desires unreachable.
+/// Eight villagers each wanting up to a dozen of every good will strip a sparse world and
+/// spend the rest of the run finding their desires unreachable.
 const MAX_TREES: usize = 250;
 const MAX_BERRIES: usize = 120;
 const MAX_STONE: usize = 90;

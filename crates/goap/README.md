@@ -1,7 +1,7 @@
 # goap
 
 Goal-oriented action planning over a caller-defined domain. No knowledge of villages,
-items or renderers — implement `Domain` and the planner works against whatever you have.
+items or renderers; implement `Domain` and the planner works against whatever you have.
 
 ```rust
 impl Domain for MyDomain {
@@ -17,8 +17,8 @@ Three things worth knowing before using it:
 finished world. That is what makes an informative A* heuristic expressible; comparing
 complete states for equality leaves no way to ask how far off you are.
 
-**`estimate` decides whether this is fast.** The default — one unit-cost action per
-outstanding condition — is admissible and usually close to useless. Override it with what
+**`estimate` decides whether this is fast.** The default, one unit-cost action per
+outstanding condition, is admissible and usually close to useless. Override it with what
 your actions actually charge. An estimate that ignores the dominant cost will search
 almost as widely as no estimate at all.
 

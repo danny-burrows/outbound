@@ -4,9 +4,6 @@ use crate::world::World;
 use goap::Goal;
 
 /// Carry `target` units of a good.
-///
-/// One goal type replaces the three near-identical ones this had, because the state now
-/// counts goods by index instead of pushing name strings into a `Vec`.
 pub(crate) struct Collect {
     good: Good,
     target: u8,
@@ -58,8 +55,8 @@ impl Goal<Village> for Collect {
             return estimate;
         }
 
-        // Every outstanding unit needs an instance of its own, so every one needs a
-        // trip — bar the one underfoot, if the villager already stands at a source.
+        // Every outstanding unit needs an instance of its own, so every one needs a trip;
+        // bar the one underfoot, if the villager already stands at a source.
         let source = self.good.source();
         let standing = state.standing_on == Some(source);
         let taken = u64::from(state.taken(source));

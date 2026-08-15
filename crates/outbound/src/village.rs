@@ -27,12 +27,11 @@ impl Inventory {
     }
 }
 
-/// The planner's entire view of the world: a few dozen bytes, `Copy`, hashed in
-/// constant time.
+/// The planner's entire view of the world: a few dozen bytes, `Copy`, hashed in constant
+/// time.
 ///
-/// Everything positional beyond the villager itself lives in [`World`] and is read
-/// through it. The old state carried the whole item list, so each of the hundreds of
-/// node expansions in a search cloned and hashed 325 items it never reasoned about.
+/// One is cloned and hashed per expanded node, so everything positional beyond the villager
+/// themselves lives in [`World`] and is read through it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub(crate) struct PlanState {
     pub(crate) position: (i64, i64),

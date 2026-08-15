@@ -11,9 +11,9 @@ cargo run -- --headless --log-level debug    # run it fast and read why it did t
 
 Two crates:
 
-- **[`crates/goap`](crates/goap)** — the planner. Domain-agnostic: implement `Domain` and
-  it works against whatever you have.
-- **[`crates/outbound`](crates/outbound)** — the simulation and renderer.
+- **[`crates/goap`](crates/goap)**: the planner. Domain-agnostic; implement `Domain` and it
+  works against whatever you have.
+- **[`crates/outbound`](crates/outbound)**: the simulation and renderer.
 
 Rendering is behind a default-on `render` feature. With it off the simulation still runs
 headless and the build needs neither cmake nor any system graphics library, which is how
@@ -24,5 +24,5 @@ cargo test -p goap
 cargo test -p outbound --no-default-features
 ```
 
-Everything else — lints, dependency versions, shared package metadata — is set once at the
+Everything else (lints, dependency versions, shared package metadata) is set once at the
 workspace root.

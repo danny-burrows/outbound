@@ -255,7 +255,7 @@ fn run_until_settled(simulation: &mut Simulation, limit: u64) -> bool {
 }
 
 /// Every tree felled becomes exactly one log, and every log gathered becomes exactly one
-/// wood. So trees lost must equal wood carried plus logs still lying about — whoever felled
+/// wood. So trees lost must equal wood carried plus logs still lying about, whoever felled
 /// what.
 ///
 /// This is the invariant that matters with a village rather than a soloist: the planner's
@@ -344,7 +344,7 @@ fn contention_does_not_become_an_endless_retry() {
 }
 
 /// Villagers are born apart and wanting different things, or a village is just one villager
-/// copied eight times — and they would all walk to the same tree.
+/// copied eight times, and they would all walk to the same tree.
 #[test]
 fn villagers_are_born_different() {
     let simulation = Simulation::new(SEED, 8);
@@ -418,7 +418,7 @@ fn population_does_not_change_the_world() {
 }
 
 /// The library hands back numbers rather than printing them, which makes a whole headless
-/// run assertable in one line — and reproducible enough to compare two runs directly.
+/// run assertable in one line, and reproducible enough to compare two runs directly.
 #[test]
 fn a_headless_run_reports_what_happened() {
     let report = crate::run_headless(SEED, 8, 60_000);

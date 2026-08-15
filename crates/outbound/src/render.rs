@@ -86,8 +86,6 @@ const fn resource_color(resource: Resource) -> Color {
     }
 }
 
-/// Villagers are told apart by colour, which is the cheapest way to watch one of them make
-/// a decision you did not expect.
 const VILLAGER_COLORS: [Color; 6] = [
     Color::BLUE,
     Color::DARKBLUE,
@@ -219,8 +217,7 @@ pub fn run(seed: u64, population: usize) {
     };
 
     while !rl.window_should_close() {
-        // Simulation steps are paced for the eye here; the simulation itself has no
-        // opinion about frames.
+        // Paced for the eye here; the simulation itself has no opinion about frames.
         if frame.is_multiple_of(STEPS_PER_FRAME_DIVISOR) {
             simulation.advance();
         }

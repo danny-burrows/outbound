@@ -21,7 +21,7 @@ Layout, roughly in dependency order:
 | --- | --- |
 | `item` | `Resource` (what the world holds) and `Good` (what a villager carries) |
 | `world` | the simulation's truth, and the `Context` the planner reads through |
-| `village` | `PlanState` — the planner's whole view, `Copy` and a few dozen bytes |
+| `village` | `PlanState`, the planner's whole view: `Copy` and a few dozen bytes |
 | `actions` | `Travel` / `Harvest` / `Gather`, with state-dependent costs |
 | `goals` | `Collect`, including the estimate that makes the search fast |
 | `sim` | the simulation loop, and refining abstract actions into real changes |

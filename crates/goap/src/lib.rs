@@ -2,17 +2,16 @@
 //!
 //! A [`Domain`] bundles the three things the planner keeps deliberately apart:
 //!
-//! - [`Domain::State`] — the *planning* state. One is cloned and hashed per expanded
-//!   node, so it wants to be small and ideally `Copy`. It is not the world.
-//! - [`Domain::Context`] — read-only world data actions may consult but that the
-//!   planner never copies: item positions, prices, who knows whom.
-//! - [`Domain::Action`] — the operators. Cost and prerequisite both see state and
-//!   context, so an action's price can reflect where an agent stands and how good it
-//!   is at the job.
+//! - [`Domain::State`]: the *planning* state. One is cloned and hashed per expanded node, so
+//!   it wants to be small and ideally `Copy`. It is not the world.
+//! - [`Domain::Context`]: read-only world data actions may consult but that the planner never
+//!   copies. Item positions, prices, who knows whom.
+//! - [`Domain::Action`]: the operators. Cost and prerequisite both see state and context, so
+//!   an action's price can reflect where an agent stands and how good it is at the job.
 //!
-//! Goals are *partial*. A [`Goal`] reports how far off it is rather than describing a
-//! finished world, which is what makes [`Goal::estimate`] — and therefore an
-//! informative A* heuristic — expressible at all.
+//! Goals are *partial*. A [`Goal`] reports how far off it is rather than describing a finished
+//! world, which is what makes [`Goal::estimate`], and therefore an informative A* heuristic,
+//! expressible at all.
 //!
 //! [`plan`] always returns a [`Plan`], carrying every goal it weighed in
 //! [`Plan::considered`] whether or not it found anything to do. Failing to plan is
@@ -58,9 +57,8 @@ pub trait Goal<D: Domain> {
     /// Conditions still outstanding; zero means satisfied.
     fn unmet(&self, state: &D::State, context: &D::Context) -> u32;
 
-    /// Optimistic remaining cost — the A* heuristic. Overshooting the true remaining
-    /// cost costs admissibility, and with it the guarantee that the first plan found
-    /// is the cheapest.
+    /// Optimistic remaining cost: the A* heuristic. Overshooting the true remaining cost costs
+    /// admissibility, and with it the guarantee that the first plan found is the cheapest.
     ///
     /// The default assumes each outstanding condition needs at least one unit-cost
     /// action. Domains that know what their actions charge should say so: an estimate
@@ -253,9 +251,8 @@ fn search<D: Domain>(
 ///
 /// The action is deliberately absent from the search node. `pathfinding` keys its
 /// frontier by node and rewrites only the parent link when it finds a cheaper route,
-/// so an action carried inside the key would still describe the route it was first
-/// inserted with. Keeping the node as bare state also lets it stay `Copy` and hash in
-/// constant time.
+/// so an action carried inside the key would still describe the route it was first inserted
+/// with. Keeping the node as bare state also lets it stay `Copy` and hash in constant time.
 fn recover_actions<D: Domain>(path: &[D::State], context: &D::Context) -> VecDeque<D::Action> {
     let mut scratch: Vec<D::Action> = Vec::new();
     let mut actions = VecDeque::with_capacity(path.len().saturating_sub(1));

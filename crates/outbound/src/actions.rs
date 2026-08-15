@@ -3,29 +3,18 @@ use crate::village::{PlanState, Village};
 use crate::world::World;
 use goap::Action;
 
-/// Three operators cover the domain now that item identities live in [`World`].
-///
-/// The `MoveToNearestItem` / `Move` / `ChopTree` / `PickUpItem` quartet this replaces
-/// carried owned `String`s and cloned `Item`s, so every node expansion allocated. This
-/// is two bytes and `Copy`. The arbitrary-delta `Move` is gone too: it only existed to
-/// walk the villager back to the origin so a *complete* goal state could match, and
-/// partial goals no longer care where anyone is standing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum VillagerAction {
-    /// Stand at the nearest unworked instance. Refined into an actual route at
-    /// execution time, not during the search.
+    /// Stand at the nearest unworked instance. Refined into an actual route at execution
+    /// time, not during the search.
     Travel(Resource),
-    /// Work the resource underfoot.
     Harvest(Resource),
-    /// Pick up one felled log.
     Gather,
 }
 
 impl Action<Village> for VillagerAction {
     fn cost(&self, state: &PlanState, context: &World) -> u64 {
         match *self {
-            // The estimate for the walk this defers, which is what lets the layer
-            // above search without expanding the hundreds of steps below it.
             Self::Travel(resource) => context
                 .trip_cost(state.position, resource, state.taken(resource))
                 .unwrap_or(u64::MAX),

@@ -65,7 +65,7 @@ impl Goal<Counter> for Reach {
         self.0.saturating_sub(state.0)
     }
 
-    /// The default estimate — one unit-cost action per outstanding condition — would
+    /// The default estimate, one unit-cost action per outstanding condition, would
     /// claim a gap of 16 needs 16 actions when doubling closes it in five. Overshooting
     /// the truth is exactly what costs admissibility, so the domain says what it knows:
     /// doubling is the fastest route, and a gap needs at least its logarithm in steps.

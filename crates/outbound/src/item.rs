@@ -25,8 +25,8 @@ impl Resource {
         }
     }
 
-    /// What working it puts straight into the pack. `None` means it leaves something
-    /// underfoot to gather — felling a tree drops logs.
+    /// What working it puts straight into the pack. `None` means it leaves something underfoot
+    /// to gather: felling a tree drops logs.
     pub(crate) const fn direct_good(self) -> Option<Good> {
         match self {
             Self::Tree => None,

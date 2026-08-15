@@ -1,9 +1,7 @@
 /// `SplitMix64`.
 ///
-/// Small enough to keep in-tree, and the property that matters is reproducibility: one
-/// seed rebuilds one world exactly, in the window and headless alike. World generation
-/// used the renderer's RNG, which meant no world could be built without opening a
-/// window first.
+/// The property that matters is reproducibility: one seed rebuilds one world exactly, in the
+/// window and headless alike.
 pub(crate) struct Rng(u64);
 
 impl Rng {

@@ -2,10 +2,9 @@ use crate::item::{Item, Resource};
 
 /// Everything the villagers share.
 ///
-/// Only the environment: nothing about any individual lives here, which is what lets a
-/// whole village be stepped against one mutable world. The planner borrows this as its
-/// `Context` and never clones it — only [`crate::village::PlanState`] is copied per search
-/// node, which is why item positions live here instead of in the state.
+/// Only the environment: nothing about any individual lives here, which is what lets a whole
+/// village be stepped against one mutable world. The planner borrows this as its `Context`
+/// and never clones it, so item positions live here rather than in the planning state.
 pub(crate) struct World {
     /// Positions grouped by kind, so a lookup scans only the resource it cares about
     /// rather than every item in the world.
@@ -70,10 +69,10 @@ impl World {
     /// What a plan should pay to reach the next unworked instance of `resource`, given
     /// it has already consumed `taken` of them. `None` when the world has no more.
     ///
-    /// Exact for the first trip. After that it charges one typical `spacing` per
-    /// instance already consumed rather than tracking which ones went — the planner
-    /// deliberately keeps no item identities, and a cost that only ever grows is
-    /// enough to stop it felling the same tree forever.
+    /// Exact for the first trip. After that it charges one typical `spacing` per instance
+    /// already consumed rather than tracking which ones went: the planner deliberately keeps
+    /// no item identities, and a cost that only ever grows is enough to stop it felling the
+    /// same tree forever.
     pub(crate) fn trip_cost(
         &self,
         from: (i64, i64),
@@ -105,7 +104,6 @@ impl World {
 
         let spacing = self.spacing.get(resource.index()).copied().unwrap_or(1);
         let trips = last.saturating_sub(first).saturating_add(1);
-        // Sum of the arithmetic run first..=last.
         let sum = first.saturating_add(last).saturating_mul(trips) / 2;
         spacing.saturating_mul(sum)
     }
@@ -143,8 +141,7 @@ impl World {
         true
     }
 
-    /// Every item in the world. Only drawing wants the lot in one pass; the planner asks
-    /// per resource, which is why they are stored grouped.
+    /// Every item in the world. Only drawing wants the lot in one pass.
     #[cfg(feature = "render")]
     pub(crate) fn items(&self) -> impl Iterator<Item = Item> {
         Resource::ALL.into_iter().flat_map(move |resource| {

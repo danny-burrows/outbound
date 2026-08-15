@@ -1,8 +1,7 @@
 /// What a headless run amounted to.
 ///
-/// Plain numbers, so a caller can assert on them or format them differently. The library
-/// hands this back rather than printing it — writing to stdout is the binary's business,
-/// which is why nothing under `src/` but `main.rs` needs a `print_stdout` exception.
+/// Plain numbers, so a caller can assert on them or format them differently. Writing to
+/// stdout is the binary's business.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Report {
     pub seed: u64,
@@ -25,7 +24,7 @@ pub struct Report {
     pub trees_left: u64,
     pub stone_left: u64,
     pub berries_left: u64,
-    /// Logs felled and then walked away from. Stranded: the planner only knows about logs
+    /// Logs felled and walked away from. Stranded, because the planner only knows about logs
     /// under the villager who felled them.
     pub logs_stranded: usize,
 }

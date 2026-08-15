@@ -1,58 +1,83 @@
-use crate::{actions::VillageState, goap::Goal};
+use crate::goap::Goal;
+use crate::item::{GATHER_COST, Good};
+use crate::village::{PlanState, Village};
+use crate::world::World;
 
-const TARGET_COUNT: i64 = 10;
-
-fn inventory_count(current_state: &VillageState, id: &str) -> i64 {
-    let held = current_state
-        .villager
-        .inventory
-        .iter()
-        .filter(|item| *item == id)
-        .count();
-    i64::try_from(held).unwrap_or(i64::MAX)
+/// Carry `target` units of a good.
+///
+/// One goal type replaces the three near-identical ones this had, because the state now
+/// counts goods by index instead of pushing name strings into a `Vec`.
+pub(crate) struct Collect {
+    good: Good,
+    target: u8,
 }
 
-#[derive(Debug)]
-pub(crate) struct CollectWood {}
-
-impl Goal<VillageState> for CollectWood {
-    fn priority(&self, current_state: &VillageState) -> i64 {
-        TARGET_COUNT - inventory_count(current_state, "wood")
+impl Collect {
+    pub(crate) const fn new(good: Good, target: u8) -> Self {
+        Self { good, target }
     }
 
-    fn goal_state(&self, current_state: VillageState) -> VillageState {
-        let mut goal_state = current_state;
-        goal_state.villager.inventory.push("wood".to_string());
-        goal_state
+    fn shortfall(&self, state: &PlanState) -> u8 {
+        self.target.saturating_sub(state.carrying.count(self.good))
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct CollectStone {}
-
-impl Goal<VillageState> for CollectStone {
-    fn priority(&self, current_state: &VillageState) -> i64 {
-        TARGET_COUNT - inventory_count(current_state, "stone")
+impl Goal<Village> for Collect {
+    fn name(&self) -> &'static str {
+        self.good.label()
     }
 
-    fn goal_state(&self, current_state: VillageState) -> VillageState {
-        let mut goal_state = current_state;
-        goal_state.villager.inventory.push("stone".to_string());
-        goal_state
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct CollectBerries {}
-
-impl Goal<VillageState> for CollectBerries {
-    fn priority(&self, current_state: &VillageState) -> i64 {
-        TARGET_COUNT - inventory_count(current_state, "berry")
+    fn utility(&self, state: &PlanState, _: &World) -> i64 {
+        i64::from(self.shortfall(state))
     }
 
-    fn goal_state(&self, current_state: VillageState) -> VillageState {
-        let mut goal_state = current_state;
-        goal_state.villager.inventory.push("berry".to_string());
-        goal_state
+    fn unmet(&self, state: &PlanState, _: &World) -> u32 {
+        u32::from(self.shortfall(state))
+    }
+
+    fn estimate(&self, state: &PlanState, context: &World) -> u64 {
+        let shortfall = u64::from(self.shortfall(state));
+        if shortfall == 0 {
+            return 0;
+        }
+
+        // Logs already felled and lying underfoot are part-paid: they only need
+        // gathering, so charging them full price would overshoot the true cost.
+        let ready = if matches!(self.good, Good::Wood) {
+            u64::from(state.logs_underfoot).min(shortfall)
+        } else {
+            0
+        };
+        let outstanding = shortfall.saturating_sub(ready);
+
+        let mut estimate = ready
+            .saturating_mul(GATHER_COST)
+            .saturating_add(outstanding.saturating_mul(self.good.unit_work()));
+
+        if outstanding == 0 {
+            return estimate;
+        }
+
+        // Every outstanding unit needs an instance of its own, so every one needs a
+        // trip — bar the one underfoot, if the villager already stands at a source.
+        let source = self.good.source();
+        let standing = state.standing_on == Some(source);
+        let taken = u64::from(state.taken(source));
+        let first = if standing {
+            taken.saturating_add(1)
+        } else {
+            taken
+        };
+        let last = taken.saturating_add(outstanding).saturating_sub(1);
+
+        estimate = estimate.saturating_add(context.depletion_cost(source, first, last));
+
+        // The nearest source's distance is known exactly, so the first trip can be
+        // priced properly rather than bounded.
+        if !standing && let Some((_, distance)) = context.nearest(state.position, source) {
+            estimate = estimate.saturating_add(distance);
+        }
+
+        estimate
     }
 }

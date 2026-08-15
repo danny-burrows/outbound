@@ -26,10 +26,6 @@ impl Health {
         }
     }
 
-    #[expect(
-        dead_code,
-        reason = "health is modelled ahead of anything that reads it"
-    )]
     pub(crate) const fn check(&self) -> Option<u8> {
         self.0
     }
@@ -41,11 +37,14 @@ impl Default for Health {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+/// The villager as the *simulation* knows them.
+///
+/// Position and inventory moved to [`crate::village::PlanState`]: they are what the
+/// planner reasons over, and keeping them here meant every search node cloned a
+/// `Vec<String>` inventory alongside the whole world.
+#[derive(Clone, Debug, Default)]
 pub(crate) struct Villager {
-    pub(crate) position: (i64, i64),
     pub(crate) health: Health,
-    pub(crate) inventory: Vec<String>,
 }
 
 impl Villager {

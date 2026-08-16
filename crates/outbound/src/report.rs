@@ -9,10 +9,12 @@ pub struct Report {
     pub villagers: usize,
     /// Villagers with nothing planned: every desire either met or out of reach.
     pub idle_villagers: usize,
-    /// Carried between the whole village.
+    /// Stored between the whole village. What the goals actually measure.
     pub wood: u64,
     pub stone: u64,
     pub berries: u64,
+    /// Items still in packs rather than put away.
+    pub in_hand: u64,
     pub plans: u64,
     /// Plans that came back with nothing to do.
     pub empty_plans: u64,
@@ -38,8 +40,8 @@ impl std::fmt::Display for Report {
         )?;
         writeln!(
             f,
-            "  village carries: {} wood, {} stone, {} berries",
-            self.wood, self.stone, self.berries
+            "  village stores:  {} wood, {} stone, {} berries ({} still in packs)",
+            self.wood, self.stone, self.berries, self.in_hand
         )?;
         writeln!(
             f,

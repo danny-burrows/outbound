@@ -1,5 +1,5 @@
 use crate::item::{GATHER_COST, Good, Resource};
-use crate::village::{Village, VillagerState};
+use crate::village::{STORE_COST, Village, VillagerState};
 use crate::world::World;
 use goap::Action;
 
@@ -10,6 +10,10 @@ pub(crate) enum VillagerAction {
     Travel(Resource),
     Harvest(Resource),
     Gather,
+    /// Carry a load back to the store.
+    GoHome,
+    /// Put the whole load into the store.
+    Store,
 }
 
 impl Action<Village> for VillagerAction {
@@ -20,6 +24,8 @@ impl Action<Village> for VillagerAction {
                 .unwrap_or(u64::MAX),
             Self::Harvest(resource) => resource.harvest_cost(),
             Self::Gather => GATHER_COST,
+            Self::GoHome => chebyshev(state.position, state.home),
+            Self::Store => STORE_COST,
         }
     }
 
@@ -33,8 +39,10 @@ impl Action<Village> for VillagerAction {
                         .trip_cost(state.position, resource, state.taken(resource))
                         .is_some()
             }
-            Self::Harvest(resource) => state.standing_on == Some(resource),
-            Self::Gather => state.logs_underfoot > 0,
+            Self::Harvest(resource) => state.standing_on == Some(resource) && state.has_room(),
+            Self::Gather => state.logs_underfoot > 0 && state.has_room(),
+            Self::GoHome => !state.is_at_home() && state.carrying.total() > 0,
+            Self::Store => state.is_at_home() && state.carrying.total() > 0,
         }
     }
 
@@ -61,6 +69,15 @@ impl Action<Village> for VillagerAction {
                 next.logs_underfoot = next.logs_underfoot.saturating_sub(1);
                 next.carrying.add(Good::Wood);
             }
+            Self::GoHome => {
+                next.position = state.home;
+                next.standing_on = None;
+                next.logs_underfoot = 0;
+            }
+            Self::Store => {
+                next.stored.absorb(state.carrying);
+                next.carrying.clear();
+            }
         }
 
         next
@@ -75,8 +92,16 @@ impl Action<Village> for VillagerAction {
             }
         }
 
-        if Self::Gather.prerequisite(state, context) {
-            out.push(Self::Gather);
+        for action in [Self::Gather, Self::GoHome, Self::Store] {
+            if action.prerequisite(state, context) {
+                out.push(action);
+            }
         }
     }
+}
+
+pub(crate) fn chebyshev((from_x, from_y): (i64, i64), (to_x, to_y): (i64, i64)) -> u64 {
+    (to_x - from_x)
+        .unsigned_abs()
+        .max((to_y - from_y).unsigned_abs())
 }

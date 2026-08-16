@@ -78,11 +78,19 @@ impl Simulation {
             .count()
     }
 
-    /// How much of a good the village is carrying between them.
-    pub(crate) fn carried(&self, good: Good) -> u64 {
+    /// How much of a good the village has put away between them.
+    pub(crate) fn stored(&self, good: Good) -> u64 {
         self.villagers
             .iter()
-            .map(|villager| u64::from(villager.state.carrying.count(good)))
+            .map(|villager| u64::from(villager.state.stored.count(good)))
+            .sum()
+    }
+
+    /// Items in packs, still in transit rather than put away.
+    pub(crate) fn in_hand(&self) -> u64 {
+        self.villagers
+            .iter()
+            .map(|villager| u64::from(villager.state.carrying.total()))
             .sum()
     }
 }

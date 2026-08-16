@@ -151,6 +151,13 @@ fn draw_villager<D: RaylibDraw>(d: &mut D, villager: &Villager) {
     d.draw_circle_v(standing, 2.2, villager_color(villager.id));
 }
 
+/// A villager's store, which is where every load ends up and so where the shuttling is aimed.
+fn draw_home<D: RaylibDraw>(d: &mut D, villager: &Villager) {
+    let (x, y) = (at(villager.state.home).x, at(villager.state.home).y);
+    let plot = Rectangle::new(x - 2.6, y - 2.6, 5.2, 5.2);
+    d.draw_rectangle_lines_ex(plot, 0.7, villager_color(villager.id).alpha(0.55));
+}
+
 fn draw_world<D: RaylibDraw>(d: &mut D, world: &World, villagers: &[Villager]) {
     let ground = Rectangle::new(0.0, 0.0, extent(), extent());
     d.draw_rectangle_rec(ground, GROUND);
@@ -163,6 +170,10 @@ fn draw_world<D: RaylibDraw>(d: &mut D, world: &World, villagers: &[Villager]) {
     for &position in &world.logs {
         let (x, y) = (at(position).x, at(position).y);
         d.draw_rectangle_rec(Rectangle::new(x - 1.6, y - 0.6, 3.2, 1.2), LOG);
+    }
+
+    for villager in villagers {
+        draw_home(d, villager);
     }
 
     // Every intent before any body, so one villager's line is not painted over by another.
@@ -201,10 +212,11 @@ fn draw_hud(d: &mut RaylibDrawHandle<'_>, simulation: &Simulation) {
         ),
         (
             format!(
-                "carrying   {} wood   {} stone   {} berries",
-                simulation.carried(Good::Wood),
-                simulation.carried(Good::Stone),
-                simulation.carried(Good::Berry),
+                "stored   {} wood   {} stone   {} berries   ({} in packs)",
+                simulation.stored(Good::Wood),
+                simulation.stored(Good::Stone),
+                simulation.stored(Good::Berry),
+                simulation.in_hand(),
             ),
             TEXT_DIM,
         ),

@@ -1,5 +1,5 @@
 use crate::actions::VillagerAction;
-use crate::goals::Collect;
+use crate::goals::Stockpile;
 use crate::item::Good;
 use crate::rng::Rng;
 use crate::stats::Stats;
@@ -84,13 +84,13 @@ impl Villager {
             .into_iter()
             .map(|good| {
                 let target = u8::try_from(rng.between(0, MAX_DESIRE)).unwrap_or(0);
-                Box::new(Collect::new(good, target)) as Box<dyn Goal<Village>>
+                Box::new(Stockpile::new(good, target)) as Box<dyn Goal<Village>>
             })
             .collect();
 
         Self {
             id,
-            state: VillagerState::at(position),
+            state: VillagerState::at_home(position),
             render_position: position,
             current_goal: None,
             health: Health::default(),
@@ -217,6 +217,17 @@ impl Villager {
                 }
                 self.state.logs_underfoot = self.state.logs_underfoot.saturating_sub(1);
                 self.state.carrying.add(Good::Wood);
+            }
+            // Neither of these touches the world, so neither can be beaten to it.
+            VillagerAction::GoHome => {
+                self.walk = walk_to(self.render_position, self.state.home);
+                self.state.position = self.state.home;
+                self.state.standing_on = None;
+                self.state.logs_underfoot = 0;
+            }
+            VillagerAction::Store => {
+                self.state.stored.absorb(self.state.carrying);
+                self.state.carrying.clear();
             }
         }
     }

@@ -15,6 +15,13 @@ impl Domain for Village {
     type Action = VillagerAction;
 }
 
+/// Items a villager can carry at once. Anything they want beyond this has to be stored at home
+/// and fetched in more than one trip.
+pub(crate) const CARRY_CAPACITY: u8 = 8;
+
+/// Effort of putting a load into the store.
+pub(crate) const STORE_COST: u64 = 1;
+
 /// Everything the planner knows about *one villager*: a few dozen bytes, `Copy`, hashed in
 /// constant time.
 ///
@@ -31,18 +38,31 @@ pub(crate) struct VillagerState {
     /// Logs felled at the current position. Left behind on moving away.
     pub(crate) logs_underfoot: u8,
     pub(crate) carrying: Inventory,
+    /// Where this villager stores what they bring back. Nobody else can reach it, so the
+    /// planner's picture of it cannot go stale.
+    pub(crate) home: (i64, i64),
+    pub(crate) stored: Inventory,
     /// Instances of each resource this plan has consumed. Prices the next trip without
     /// the state having to remember which instances they were.
     taken: [u16; Resource::COUNT],
 }
 
 impl VillagerState {
-    /// Standing somewhere, carrying nothing.
-    pub(crate) fn at(position: (i64, i64)) -> Self {
+    /// Standing at home with nothing to their name.
+    pub(crate) fn at_home(home: (i64, i64)) -> Self {
         Self {
-            position,
+            position: home,
+            home,
             ..Self::default()
         }
+    }
+
+    pub(crate) fn has_room(&self) -> bool {
+        self.carrying.total() < CARRY_CAPACITY
+    }
+
+    pub(crate) fn is_at_home(&self) -> bool {
+        self.position == self.home
     }
 
     pub(crate) fn taken(&self, resource: Resource) -> u16 {

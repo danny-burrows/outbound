@@ -94,6 +94,20 @@ impl Inventory {
             *slot = slot.saturating_add(1);
         }
     }
+
+    pub(crate) fn total(self) -> u8 {
+        self.0.iter().copied().fold(0, u8::saturating_add)
+    }
+
+    pub(crate) fn absorb(&mut self, other: Self) {
+        for (slot, amount) in self.0.iter_mut().zip(other.0) {
+            *slot = slot.saturating_add(amount);
+        }
+    }
+
+    pub(crate) fn clear(&mut self) {
+        *self = Self::default();
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

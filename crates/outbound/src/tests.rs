@@ -1,8 +1,8 @@
-use crate::goals::Collect;
+use crate::goals::Stockpile;
 use crate::item::{Good, Item, Resource};
 use crate::rng::Rng;
 use crate::sim::{Simulation, WORLD_EXTENT};
-use crate::village::{Village, VillagerState};
+use crate::village::{CARRY_CAPACITY, Village, VillagerState};
 use crate::world::World;
 use goap::{Action, Consideration, Goal, PlannerConfig, plan};
 
@@ -25,7 +25,7 @@ fn fixture() -> World {
 }
 
 fn wood_goal(target: u8) -> Vec<Box<dyn Goal<Village>>> {
-    vec![Box::new(Collect::new(Good::Wood, target))]
+    vec![Box::new(Stockpile::new(Good::Wood, target))]
 }
 
 /// The measurement that justifies the planner's shape: a `heuristic_weight` of 0 is the
@@ -140,11 +140,9 @@ fn the_gap_widens_with_world_size() {
     );
 
     assert_eq!(guided.cost, blind.cost, "heuristic cost optimality");
-    assert_eq!(
-        guided.actions.len(),
-        30,
-        "10 wood needs 10 rounds of travel, fell, gather"
-    );
+    // Ten rounds of travel, fell and gather, plus a trip home to store for each of the two
+    // loads a capacity of eight forces.
+    assert_eq!(guided.actions.len(), 10 * 3 + 2 * 2);
     assert!(
         guided.expansions.saturating_mul(50) < blind.expansions,
         "expected the gap to widen with world size, got {} vs {}",
@@ -169,7 +167,7 @@ fn recovered_actions_replay_the_plan() {
 
     assert!(!found.is_empty(), "no plan for a reachable goal");
 
-    let goal = Collect::new(Good::Wood, 4);
+    let goal = Stockpile::new(Good::Wood, 4);
     let mut state = VillagerState::default();
     let mut total: u64 = 0;
 
@@ -220,8 +218,8 @@ fn an_unreachable_goal_falls_through_to_the_next() {
     );
     let goals: Vec<Box<dyn Goal<Village>>> = vec![
         // Higher utility, but only one tree exists.
-        Box::new(Collect::new(Good::Wood, 9)),
-        Box::new(Collect::new(Good::Berry, 1)),
+        Box::new(Stockpile::new(Good::Wood, 9)),
+        Box::new(Stockpile::new(Good::Berry, 1)),
     ];
 
     let found = plan(
@@ -250,6 +248,8 @@ fn an_unreachable_goal_falls_through_to_the_next() {
 fn run_until_settled(simulation: &mut Simulation, limit: u64) -> bool {
     for _ in 0..limit {
         simulation.advance();
+        // Checked every step rather than at the end, where every pack is empty anyway.
+        assert_capacity_is_respected(simulation);
         if simulation.idle_villagers() == simulation.villagers.len() {
             return true;
         }
@@ -257,23 +257,40 @@ fn run_until_settled(simulation: &mut Simulation, limit: u64) -> bool {
     false
 }
 
-/// Every tree felled becomes exactly one log, and every log gathered becomes exactly one
-/// wood. So trees lost must equal wood carried plus logs still lying about, whoever felled
-/// what.
+/// Every tree felled becomes exactly one log, every log gathered becomes exactly one wood, and
+/// storing a load moves it without changing it. So trees lost must equal wood stored plus wood
+/// still in packs plus logs left lying about, whoever felled what.
 ///
-/// This is the invariant that matters with a village rather than a soloist: the planner's
-/// `act` and the villager's real world changes are separate code, and eight villagers
-/// mutating one world is where they would drift apart.
+/// This is the invariant that matters with a village rather than a soloist: the planner's `act`
+/// and the villager's real world changes are separate code, and eight villagers mutating one
+/// world is where they would drift apart.
 fn assert_wood_is_conserved(simulation: &Simulation, trees_before: u64) {
     let felled = trees_before - simulation.world.count(Resource::Tree);
-    let carried = simulation.carried(Good::Wood);
+    let stored = simulation.stored(Good::Wood);
+    let packed: u64 = simulation
+        .villagers
+        .iter()
+        .map(|villager| u64::from(villager.state.carrying.count(Good::Wood)))
+        .sum();
     let stranded = u64::try_from(simulation.world.logs.len()).unwrap_or(u64::MAX);
 
     assert_eq!(
         felled,
-        carried + stranded,
-        "{felled} trees felled but {carried} wood carried and {stranded} logs stranded"
+        stored + packed + stranded,
+        "{felled} trees felled but {stored} stored, {packed} in packs, {stranded} stranded"
     );
+}
+
+/// Capacity is only meaningful if it actually binds, so check no villager ever exceeds it.
+fn assert_capacity_is_respected(simulation: &Simulation) {
+    for villager in &simulation.villagers {
+        let load = villager.state.carrying.total();
+        assert!(
+            load <= CARRY_CAPACITY,
+            "villager {} is carrying {load} of a possible {CARRY_CAPACITY}",
+            villager.id
+        );
+    }
 }
 
 #[test]
@@ -367,7 +384,7 @@ fn villagers_are_born_different() {
     let packs: std::collections::HashSet<_> = settled
         .villagers
         .iter()
-        .map(|villager| villager.state.carrying)
+        .map(|villager| villager.state.stored)
         .collect();
     assert!(
         packs.len() > 1,

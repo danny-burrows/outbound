@@ -84,6 +84,12 @@ pub struct PlannerConfig {
     /// [`Plan::expansions`] counts those too. They generate no successors, so the
     /// overshoot is bounded by the frontier's size and costs next to nothing.
     pub max_expansions: usize,
+    /// How many of the most-wanted goals to plan for before choosing between them.
+    ///
+    /// `1` takes the most-wanted goal that can be planned at all. Above that, the winner is
+    /// the best utility per unit of plan cost, so a modest goal within easy reach can outrank
+    /// a grand one that would take all week. Each extra candidate costs another search.
+    pub candidates: usize,
 }
 
 impl Default for PlannerConfig {
@@ -91,6 +97,7 @@ impl Default for PlannerConfig {
         Self {
             heuristic_weight: 1,
             max_expansions: 20_000,
+            candidates: 3,
         }
     }
 }
@@ -104,7 +111,9 @@ pub enum Consideration {
     Chosen,
     /// Planned for, but no plan exists inside [`PlannerConfig::max_expansions`].
     Unreachable,
-    /// A goal it outranked, or that outranked it, was served first.
+    /// Planned for, but another goal offered more utility per unit of cost.
+    Outvalued,
+    /// Enough other goals were weighed first that this one was never reached.
     NotTried,
 }
 
@@ -137,10 +146,23 @@ impl<A> Plan<A> {
     }
 }
 
-/// Plan for the most-wanted goal that is actually reachable.
+/// Is `(utility, cost)` the better bargain?
 ///
-/// Goals are tried in descending utility and the first that yields a plan wins, so a
-/// goal nothing can currently satisfy costs a bounded search rather than an idle agent.
+/// Cross-multiplied rather than divided, so the ratio never loses precision and never divides
+/// by a zero-cost plan.
+fn better_value(candidate: (i64, u64), incumbent: (i64, u64)) -> bool {
+    let (utility, cost) = candidate;
+    let (best_utility, best_cost) = incumbent;
+    i128::from(utility).saturating_mul(i128::from(best_cost))
+        > i128::from(best_utility).saturating_mul(i128::from(cost))
+}
+
+/// Plan for the goal offering the most utility per unit of cost.
+///
+/// Goals are weighed in descending utility, up to [`PlannerConfig::candidates`] of them that
+/// can be planned at all, and the best bargain among those wins. Ranking by utility alone
+/// would always pick the grandest ambition however long it would take, which is only harmless
+/// while every goal costs about the same.
 #[must_use]
 pub fn plan<D: Domain>(
     state: &D::State,
@@ -178,35 +200,76 @@ pub fn plan<D: Domain>(
     });
 
     let mut expansions = 0;
+    let mut weighed = 0;
+    let mut best: Option<(usize, Vec<D::State>, u64, i64)> = None;
+
     for index in order {
+        if weighed >= config.candidates {
+            break;
+        }
         let Some(goal) = goals.get(index) else {
             continue;
         };
+        let utility = considered
+            .get(index)
+            .map_or(0, |candidate| candidate.utility);
 
-        if let Some((path, cost)) =
+        let Some((path, cost)) =
             search::<D>(state, context, goal.as_ref(), config, &mut expansions)
-        {
+        else {
             if let Some(candidate) = considered.get_mut(index) {
-                candidate.outcome = Consideration::Chosen;
+                candidate.outcome = Consideration::Unreachable;
             }
-            return Plan {
-                goal: Some(goal.name()),
-                actions: recover_actions::<D>(&path, context),
-                cost,
-                expansions,
-                considered,
-            };
-        }
+            continue;
+        };
 
-        if let Some(candidate) = considered.get_mut(index) {
-            candidate.outcome = Consideration::Unreachable;
+        // An unreachable goal does not use up a candidate slot: it would otherwise starve the
+        // comparison of anything to compare.
+        weighed += 1;
+
+        // Scalars only, so nothing is borrowed from `best` while it is being replaced.
+        let incumbent = best
+            .as_ref()
+            .map(|&(previous, _, best_cost, best_utility)| (previous, best_cost, best_utility));
+
+        let beaten = match incumbent {
+            None => {
+                best = Some((index, path, cost, utility));
+                continue;
+            }
+            Some((previous, best_cost, best_utility)) => {
+                if better_value((utility, cost), (best_utility, best_cost)) {
+                    best = Some((index, path, cost, utility));
+                    previous
+                } else {
+                    index
+                }
+            }
+        };
+
+        if let Some(candidate) = considered.get_mut(beaten) {
+            candidate.outcome = Consideration::Outvalued;
         }
     }
 
+    let Some((index, path, cost, _)) = best else {
+        return Plan {
+            goal: None,
+            actions: VecDeque::new(),
+            cost: 0,
+            expansions,
+            considered,
+        };
+    };
+
+    if let Some(candidate) = considered.get_mut(index) {
+        candidate.outcome = Consideration::Chosen;
+    }
+
     Plan {
-        goal: None,
-        actions: VecDeque::new(),
-        cost: 0,
+        goal: goals.get(index).map(|goal| goal.name()),
+        actions: recover_actions::<D>(&path, context),
+        cost,
         expansions,
         considered,
     }

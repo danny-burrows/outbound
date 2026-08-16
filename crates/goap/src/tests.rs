@@ -114,8 +114,8 @@ fn an_exhausted_budget_reports_an_unreachable_goal() {
         &Limit(1_000_000),
         &goals(999_999),
         &PlannerConfig {
-            heuristic_weight: 1,
             max_expansions: 4,
+            ..PlannerConfig::default()
         },
     );
 
@@ -133,30 +133,88 @@ fn an_exhausted_budget_reports_an_unreachable_goal() {
     );
 }
 
-#[test]
-fn goals_are_tried_in_descending_utility() {
-    struct Fixed(&'static str, i64, u32);
-    impl Goal<Counter> for Fixed {
-        fn name(&self) -> &'static str {
-            self.0
-        }
-        fn utility(&self, _: &Count, _: &Limit) -> i64 {
-            self.1
-        }
-        fn unmet(&self, state: &Count, _: &Limit) -> u32 {
-            self.2.saturating_sub(state.0)
-        }
-    }
+struct Fixed(&'static str, i64, u32);
 
+impl Goal<Counter> for Fixed {
+    fn name(&self) -> &'static str {
+        self.0
+    }
+    fn utility(&self, _: &Count, _: &Limit) -> i64 {
+        self.1
+    }
+    fn unmet(&self, state: &Count, _: &Limit) -> u32 {
+        self.2.saturating_sub(state.0)
+    }
+}
+
+fn outcome_of(found: &crate::Plan<Step>, goal: &str) -> Option<Consideration> {
+    found
+        .considered
+        .iter()
+        .find(|candidate| candidate.goal == goal)
+        .map(|candidate| candidate.outcome)
+}
+
+#[test]
+fn with_one_candidate_the_most_wanted_goal_wins() {
     // Declared lowest-utility first, so ordering cannot be mistaken for declaration order.
     let goals: Vec<Box<dyn Goal<Counter>>> =
         vec![Box::new(Fixed("meek", 1, 3)), Box::new(Fixed("keen", 9, 3))];
-    let found = plan(&Count(0), &Limit(32), &goals, &PlannerConfig::default());
+    let found = plan(
+        &Count(0),
+        &Limit(32),
+        &goals,
+        &PlannerConfig {
+            candidates: 1,
+            ..PlannerConfig::default()
+        },
+    );
 
     assert_eq!(found.goal, Some("keen"));
-    let outcomes: Vec<_> = found.considered.iter().map(|c| c.outcome).collect();
-    assert_eq!(
-        outcomes,
-        vec![Consideration::NotTried, Consideration::Chosen]
+    assert_eq!(outcome_of(&found, "meek"), Some(Consideration::NotTried));
+}
+
+/// Utility alone would always pick the grandest ambition. Reaching 64 costs 7 actions and
+/// reaching 4 costs 3, so at these utilities the modest goal is the better bargain by 1.67 to
+/// 1.43 even though it is wanted half as much.
+#[test]
+fn a_cheap_goal_can_outrank_a_grander_one() {
+    let goals: Vec<Box<dyn Goal<Counter>>> = vec![
+        Box::new(Fixed("grand", 10, 64)),
+        Box::new(Fixed("modest", 5, 4)),
+    ];
+    let found = plan(&Count(0), &Limit(128), &goals, &PlannerConfig::default());
+
+    assert_eq!(found.goal, Some("modest"));
+    assert_eq!(found.cost, 3);
+    assert_eq!(outcome_of(&found, "grand"), Some(Consideration::Outvalued));
+}
+
+/// Weighing costs a search per candidate, so an unreachable goal must not use a slot up: it
+/// would leave the comparison with nothing to compare.
+#[test]
+fn an_unreachable_goal_does_not_use_up_a_candidate_slot() {
+    let goals: Vec<Box<dyn Goal<Counter>>> = vec![
+        // Wanted most, but the ceiling puts it out of reach.
+        Box::new(Fixed("impossible", 99, 500)),
+        Box::new(Fixed("grand", 10, 64)),
+        Box::new(Fixed("modest", 5, 4)),
+    ];
+    let found = plan(
+        &Count(0),
+        &Limit(128),
+        &goals,
+        &PlannerConfig {
+            candidates: 2,
+            max_expansions: 400,
+            ..PlannerConfig::default()
+        },
     );
+
+    assert_eq!(found.goal, Some("modest"));
+    assert_eq!(
+        outcome_of(&found, "impossible"),
+        Some(Consideration::Unreachable)
+    );
+    assert_eq!(outcome_of(&found, "grand"), Some(Consideration::Outvalued));
 }

@@ -48,6 +48,7 @@ fn heuristic_cuts_expansions_without_changing_the_plan() {
         &PlannerConfig {
             heuristic_weight: 0,
             max_expansions: generous,
+            ..PlannerConfig::default()
         },
     );
     let guided = plan(
@@ -57,6 +58,7 @@ fn heuristic_cuts_expansions_without_changing_the_plan() {
         &PlannerConfig {
             heuristic_weight: 1,
             max_expansions: generous,
+            ..PlannerConfig::default()
         },
     );
 
@@ -115,6 +117,7 @@ fn the_gap_widens_with_world_size() {
         &PlannerConfig {
             heuristic_weight: 0,
             max_expansions: generous,
+            ..PlannerConfig::default()
         },
     );
     let guided = plan(
@@ -124,6 +127,7 @@ fn the_gap_widens_with_world_size() {
         &PlannerConfig {
             heuristic_weight: 1,
             max_expansions: generous,
+            ..PlannerConfig::default()
         },
     );
 

@@ -7,6 +7,16 @@ use goap::PlannerConfig;
 
 pub(crate) const WORLD_EXTENT: i64 = 150;
 
+/// How far to trust [`goap::Goal::estimate`] over exhaustively checking whether some cheaper
+/// plan exists.
+///
+/// Above 1 this gives up the guarantee that a plan is the cheapest available, and every plan is
+/// instead only guaranteed within this factor of it. That is wanted rather than tolerated:
+/// villagers who sometimes take the second-best route read as people rather than as solvers.
+/// It also cuts the worst single search by around ninety times, and planning happens inside a
+/// frame.
+pub(crate) const HEURISTIC_WEIGHT: u64 = 2;
+
 /// Eight villagers each wanting up to a dozen of every good will strip a sparse world and
 /// spend the rest of the run finding their desires unreachable.
 const MAX_TREES: usize = 250;
@@ -51,7 +61,10 @@ impl Simulation {
             world: World::new(&items, extent),
             villagers,
             stats: Stats::default(),
-            config: PlannerConfig::default(),
+            config: PlannerConfig {
+                heuristic_weight: HEURISTIC_WEIGHT,
+                ..PlannerConfig::default()
+            },
             steps: 0,
         }
     }

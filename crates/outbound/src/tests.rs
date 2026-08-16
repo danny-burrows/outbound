@@ -1,7 +1,7 @@
 use crate::goals::Stockpile;
 use crate::item::{Good, Item, Resource};
 use crate::rng::Rng;
-use crate::sim::{Simulation, WORLD_EXTENT};
+use crate::sim::{HEURISTIC_WEIGHT, Simulation, WORLD_EXTENT};
 use crate::village::{CARRY_CAPACITY, Village, VillagerState};
 use crate::world::World;
 use goap::{Action, Consideration, Goal, PlannerConfig, plan};
@@ -460,4 +460,108 @@ fn a_headless_run_reports_what_happened() {
         crate::run_headless(SEED, 8, 60_000),
         "the same seed produced a different report"
     );
+}
+
+fn world_scale_fixture() -> World {
+    let mut rng = Rng::new(0x5EED);
+    let mut items = Vec::new();
+    for (resource, count) in [
+        (Resource::Tree, 250),
+        (Resource::Stone, 90),
+        (Resource::Berry, 120),
+    ] {
+        for _ in 0..count {
+            items.push(Item::new(resource, rng.position(WORLD_EXTENT)));
+        }
+    }
+    World::new(&items, 150)
+}
+
+/// The estimate is what keeps the search affordable, so pin both halves of what it must be.
+///
+/// Never above the true cost, or A* stops being guaranteed to find the cheapest plan; and close
+/// enough to it to be worth having, since an admissible estimate can still be useless. Slippage
+/// here shows up as expansions everywhere else.
+#[test]
+fn the_estimate_stays_admissible_and_close() {
+    let world = world_scale_fixture();
+    let state = VillagerState::default();
+    let config = PlannerConfig {
+        max_expansions: 4_000_000,
+        ..PlannerConfig::default()
+    };
+
+    for target in [1_u8, 4, 8, 9, 12, 17] {
+        let estimate = Stockpile::new(Good::Wood, target).estimate(&state, &world);
+        let found = plan(&state, &world, &wood_goal(target), &config);
+
+        assert!(!found.is_empty(), "no plan for {target} wood");
+        assert!(
+            estimate <= found.cost,
+            "estimate {estimate} for {target} wood exceeds its true cost {}",
+            found.cost
+        );
+
+        // A single unit is the loose case: with one load, starting from home, the bound on
+        // getting home is zero, so the walk back from the last tree goes uncharged. It costs
+        // nothing in practice because such plans are tiny.
+        if target > 1 {
+            let tightness = estimate.saturating_mul(100) / found.cost.max(1);
+            assert!(
+                tightness >= 85,
+                "estimate for {target} wood is only {tightness}% of its true cost {}",
+                found.cost
+            );
+        }
+    }
+}
+
+/// Villagers are allowed to be imperfect, so planning trusts the estimate further than strict
+/// optimality allows. What must survive is the bound: weighting an admissible estimate by `w`
+/// keeps every plan within `w` times the cheapest one. Without that, "imperfect" has no limit.
+#[test]
+fn a_hasty_plan_stays_within_its_bound() {
+    let world = world_scale_fixture();
+    let state = VillagerState::default();
+
+    for target in [4_u8, 9, 17] {
+        let cheapest = plan(
+            &state,
+            &world,
+            &wood_goal(target),
+            &PlannerConfig {
+                heuristic_weight: 1,
+                max_expansions: 4_000_000,
+                ..PlannerConfig::default()
+            },
+        );
+        let hasty = plan(
+            &state,
+            &world,
+            &wood_goal(target),
+            &PlannerConfig {
+                heuristic_weight: HEURISTIC_WEIGHT,
+                max_expansions: 4_000_000,
+                ..PlannerConfig::default()
+            },
+        );
+
+        assert!(
+            !cheapest.is_empty() && !hasty.is_empty(),
+            "no plan for {target}"
+        );
+        assert!(
+            hasty.cost <= cheapest.cost.saturating_mul(HEURISTIC_WEIGHT),
+            "hasty plan for {target} wood cost {} against a cheapest {} and a bound of {}",
+            hasty.cost,
+            cheapest.cost,
+            cheapest.cost.saturating_mul(HEURISTIC_WEIGHT),
+        );
+        assert!(
+            hasty.expansions <= cheapest.expansions,
+            "haste searched harder, not less: {} against {}",
+            hasty.expansions,
+            cheapest.expansions
+        );
+    }
 }

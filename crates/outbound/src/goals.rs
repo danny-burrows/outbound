@@ -1,5 +1,5 @@
 use crate::item::{GATHER_COST, Good};
-use crate::village::{PlanState, Village};
+use crate::village::{Village, VillagerState};
 use crate::world::World;
 use goap::Goal;
 
@@ -14,7 +14,7 @@ impl Collect {
         Self { good, target }
     }
 
-    fn shortfall(&self, state: &PlanState) -> u8 {
+    fn shortfall(&self, state: &VillagerState) -> u8 {
         self.target.saturating_sub(state.carrying.count(self.good))
     }
 }
@@ -24,15 +24,15 @@ impl Goal<Village> for Collect {
         self.good.label()
     }
 
-    fn utility(&self, state: &PlanState, _: &World) -> i64 {
+    fn utility(&self, state: &VillagerState, _: &World) -> i64 {
         i64::from(self.shortfall(state))
     }
 
-    fn unmet(&self, state: &PlanState, _: &World) -> u32 {
+    fn unmet(&self, state: &VillagerState, _: &World) -> u32 {
         u32::from(self.shortfall(state))
     }
 
-    fn estimate(&self, state: &PlanState, context: &World) -> u64 {
+    fn estimate(&self, state: &VillagerState, context: &World) -> u64 {
         let shortfall = u64::from(self.shortfall(state));
         if shortfall == 0 {
             return 0;

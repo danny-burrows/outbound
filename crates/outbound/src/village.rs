@@ -1,39 +1,30 @@
 use crate::actions::VillagerAction;
-use crate::item::{Good, Resource};
+use crate::item::{Inventory, Resource};
 use crate::world::World;
 use goap::Domain;
 
-/// Marker tying the village's state, context and actions together.
+/// The planning problem: one villager choosing what to do next, with the village around them
+/// as read-only context.
+///
+/// The village is the *setting*, not the subject. Nothing here plans for villagers jointly.
 pub(crate) struct Village;
 
 impl Domain for Village {
-    type State = PlanState;
+    type State = VillagerState;
     type Context = World;
     type Action = VillagerAction;
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct Inventory([u8; Good::COUNT]);
-
-impl Inventory {
-    pub(crate) fn count(self, good: Good) -> u8 {
-        self.0.get(good.index()).copied().unwrap_or(0)
-    }
-
-    pub(crate) fn add(&mut self, good: Good) {
-        if let Some(slot) = self.0.get_mut(good.index()) {
-            *slot = slot.saturating_add(1);
-        }
-    }
-}
-
-/// The planner's entire view of the world: a few dozen bytes, `Copy`, hashed in constant
-/// time.
+/// Everything the planner knows about *one villager*: a few dozen bytes, `Copy`, hashed in
+/// constant time.
 ///
-/// One is cloned and hashed per expanded node, so everything positional beyond the villager
-/// themselves lives in [`World`] and is read through it.
+/// Not a view of the world; that is [`World`], borrowed as context. Villagers are planned for
+/// one at a time and cannot see each other, so no plan can call on anyone else's labour.
+///
+/// One of these is cloned and hashed per expanded node, which is why nothing positional beyond
+/// the villager themselves lives here.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub(crate) struct PlanState {
+pub(crate) struct VillagerState {
     pub(crate) position: (i64, i64),
     /// Resource underfoot, when the villager is standing at one.
     pub(crate) standing_on: Option<Resource>,
@@ -45,7 +36,7 @@ pub(crate) struct PlanState {
     taken: [u16; Resource::COUNT],
 }
 
-impl PlanState {
+impl VillagerState {
     /// Standing somewhere, carrying nothing.
     pub(crate) fn at(position: (i64, i64)) -> Self {
         Self {

@@ -2,7 +2,7 @@ use crate::goals::Collect;
 use crate::item::{Good, Item, Resource};
 use crate::rng::Rng;
 use crate::sim::{Simulation, WORLD_EXTENT};
-use crate::village::{PlanState, Village};
+use crate::village::{Village, VillagerState};
 use crate::world::World;
 use goap::{Action, Consideration, Goal, PlannerConfig, plan};
 
@@ -37,7 +37,7 @@ fn wood_goal(target: u8) -> Vec<Box<dyn Goal<Village>>> {
 )]
 fn heuristic_cuts_expansions_without_changing_the_plan() {
     let world = fixture();
-    let state = PlanState::default();
+    let state = VillagerState::default();
     let goals = wood_goal(3);
 
     let generous = 2_000_000;
@@ -111,7 +111,7 @@ fn the_gap_widens_with_world_size() {
 
     let generous = 4_000_000;
     let blind = plan(
-        &PlanState::default(),
+        &VillagerState::default(),
         &world,
         &goals,
         &PlannerConfig {
@@ -121,7 +121,7 @@ fn the_gap_widens_with_world_size() {
         },
     );
     let guided = plan(
-        &PlanState::default(),
+        &VillagerState::default(),
         &world,
         &goals,
         &PlannerConfig {
@@ -161,7 +161,7 @@ fn recovered_actions_replay_the_plan() {
     let world = fixture();
     let goals = wood_goal(4);
     let found = plan(
-        &PlanState::default(),
+        &VillagerState::default(),
         &world,
         &goals,
         &PlannerConfig::default(),
@@ -170,7 +170,7 @@ fn recovered_actions_replay_the_plan() {
     assert!(!found.is_empty(), "no plan for a reachable goal");
 
     let goal = Collect::new(Good::Wood, 4);
-    let mut state = PlanState::default();
+    let mut state = VillagerState::default();
     let mut total: u64 = 0;
 
     for action in &found.actions {
@@ -190,7 +190,7 @@ fn recovered_actions_replay_the_plan() {
     assert_eq!(total, found.cost, "replayed cost differs from planned cost");
 }
 
-/// `PlanState::taken` exists to stop the planner harvesting one instance forever. A
+/// `VillagerState::taken` exists to stop the planner harvesting one instance forever. A
 /// single tree yields exactly one log, so a two-log goal has to be unreachable.
 #[test]
 fn a_plan_cannot_work_the_same_instance_twice() {
@@ -198,11 +198,11 @@ fn a_plan_cannot_work_the_same_instance_twice() {
     let config = PlannerConfig::default();
 
     assert!(
-        !plan(&PlanState::default(), &world, &wood_goal(1), &config).is_empty(),
+        !plan(&VillagerState::default(), &world, &wood_goal(1), &config).is_empty(),
         "one tree should yield one log"
     );
     assert!(
-        plan(&PlanState::default(), &world, &wood_goal(2), &config).is_empty(),
+        plan(&VillagerState::default(), &world, &wood_goal(2), &config).is_empty(),
         "one tree yielded two logs"
     );
 }
@@ -225,7 +225,7 @@ fn an_unreachable_goal_falls_through_to_the_next() {
     ];
 
     let found = plan(
-        &PlanState::default(),
+        &VillagerState::default(),
         &world,
         &goals,
         &PlannerConfig::default(),
@@ -236,7 +236,6 @@ fn an_unreachable_goal_falls_through_to_the_next() {
         "planner gave up instead of trying berries"
     );
 
-    // The trace should say so, which is the whole point of keeping it.
     let wood = found.considered.iter().find(|c| c.goal == "wood");
     assert!(
         wood.is_some(),

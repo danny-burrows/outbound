@@ -3,7 +3,7 @@ use crate::goals::Collect;
 use crate::item::Good;
 use crate::rng::Rng;
 use crate::stats::Stats;
-use crate::village::{PlanState, Village};
+use crate::village::{Village, VillagerState};
 use crate::world::World;
 use goap::{Goal, PlannerConfig, plan};
 use pathfinding::directed::astar::astar;
@@ -60,7 +60,7 @@ impl Default for Health {
 pub(crate) struct Villager {
     pub(crate) id: usize,
     /// What the planner reasons over: where they stand and what they carry.
-    pub(crate) state: PlanState,
+    pub(crate) state: VillagerState,
     /// Trails `state.position` while a walk plays out, and catches up before the next action
     /// runs.
     pub(crate) render_position: (i64, i64),
@@ -90,7 +90,7 @@ impl Villager {
 
         Self {
             id,
-            state: PlanState::at(position),
+            state: VillagerState::at(position),
             render_position: position,
             current_goal: None,
             health: Health::default(),

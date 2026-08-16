@@ -80,6 +80,22 @@ impl Good {
     }
 }
 
+/// A tally of goods. Carried in a pack, piled in a stockpile, or delivered to a build site.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub(crate) struct Inventory([u8; Good::COUNT]);
+
+impl Inventory {
+    pub(crate) fn count(self, good: Good) -> u8 {
+        self.0.get(good.index()).copied().unwrap_or(0)
+    }
+
+    pub(crate) fn add(&mut self, good: Good) {
+        if let Some(slot) = self.0.get_mut(good.index()) {
+            *slot = slot.saturating_add(1);
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Item {
     pub(crate) position: (i64, i64),

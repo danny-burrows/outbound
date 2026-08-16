@@ -1,5 +1,5 @@
 use crate::item::{GATHER_COST, Good, Resource};
-use crate::village::{PlanState, Village};
+use crate::village::{Village, VillagerState};
 use crate::world::World;
 use goap::Action;
 
@@ -13,7 +13,7 @@ pub(crate) enum VillagerAction {
 }
 
 impl Action<Village> for VillagerAction {
-    fn cost(&self, state: &PlanState, context: &World) -> u64 {
+    fn cost(&self, state: &VillagerState, context: &World) -> u64 {
         match *self {
             Self::Travel(resource) => context
                 .trip_cost(state.position, resource, state.taken(resource))
@@ -23,7 +23,7 @@ impl Action<Village> for VillagerAction {
         }
     }
 
-    fn prerequisite(&self, state: &PlanState, context: &World) -> bool {
+    fn prerequisite(&self, state: &VillagerState, context: &World) -> bool {
         match *self {
             // Travelling to where you already stand would be a free self-loop for the
             // search to churn on.
@@ -38,7 +38,7 @@ impl Action<Village> for VillagerAction {
         }
     }
 
-    fn act(&self, state: &PlanState, context: &World) -> PlanState {
+    fn act(&self, state: &VillagerState, context: &World) -> VillagerState {
         let mut next = *state;
 
         match *self {
@@ -66,7 +66,7 @@ impl Action<Village> for VillagerAction {
         next
     }
 
-    fn available(state: &PlanState, context: &World, out: &mut Vec<Self>) {
+    fn available(state: &VillagerState, context: &World, out: &mut Vec<Self>) {
         for resource in Resource::ALL {
             for action in [Self::Travel(resource), Self::Harvest(resource)] {
                 if action.prerequisite(state, context) {

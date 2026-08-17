@@ -15,7 +15,7 @@ env_logger = "0.11.11"
 goap = { path = "crates/goap" }
 log = "0.4.33"
 pathfinding = "4.15.0"
-raylib = "6.0.0"
+raylib = { version = "6.0.0", features = ["GLFW_BUILD_WAYLAND"] }
 
 [workspace.lints.clippy]
 # priority is set to `-1` to prevent collision with specific lints below
